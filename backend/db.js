@@ -1,4 +1,4 @@
-// db.js — una "micro base de datos" hecha a mano con un archivo JSON.
+// db.js: una "micro base de datos" hecha a mano con un archivo JSON.
 // No es lo que usarías en producción a gran escala, pero para un proyecto
 // chico/educativo es perfecta: simple, gratis y fácil de entender.
 //

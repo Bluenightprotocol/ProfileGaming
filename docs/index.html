@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ProfileGaming — Tu calificación vs. la crítica</title>
+<title>ProfileGaming: Tu calificación vs. la crítica</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -16,60 +17,62 @@
       <span class="logo-text">PROFILE<span class="accent">GAMING</span></span>
     </div>
     <nav class="nav">
-      <a href="#juego-temporada" class="nav-link active" data-section="temporada">Temporada</a>
-      <a href="#juego-versus" class="nav-link" data-section="versus">Tú vs. Crítica</a>
-      <a href="#juego-ranking" class="nav-link" data-section="ranking">Ranking</a>
+      <button class="nav-link active" data-tab="temporada" type="button">Temporada</button>
+      <button class="nav-link" data-tab="versus" type="button">Tú vs. Crítica</button>
+      <button class="nav-link" data-tab="ranking" type="button">Ranking</button>
+      <button class="nav-link nav-settings" data-tab="ajustes" type="button" aria-label="Ajustes">⚙</button>
     </nav>
   </header>
 
   <main>
     <!-- HERO -->
     <section class="hero">
-      <p class="eyebrow">Experimento social — votación en vivo</p>
+      <p class="eyebrow">Experimento social: votación en vivo</p>
       <h1>¿Tu calificación coincide<br>con la de la crítica?</h1>
-      <p class="hero-sub">Elegí un juego, decí desde qué temporada lo jugaste y calificalo. Cada voto cuenta una sola vez por persona.</p>
+      <p class="hero-sub">Elige un juego, indica desde cuándo lo juegas y califícalo. Cada voto cuenta una sola vez por persona.</p>
     </section>
 
-    <!-- MINIJUEGO 1: TEMPORADA -->
-    <section id="juego-temporada" class="panel" data-panel="temporada">
-      <h2 class="panel-title">01 · ¿Desde qué temporada jugás?</h2>
-      <p class="panel-desc">Seleccioná el juego y la temporada o año desde el que lo seguís.</p>
+    <!-- PESTAÑA 1: TEMPORADA -->
+    <section id="tab-temporada" class="panel tab-panel active" data-panel="temporada">
+      <h2 class="panel-title">01 · ¿Desde cuándo juegas?</h2>
+      <p class="panel-desc">Elige el juego. Las opciones cambian según cómo se mide el tiempo en cada título.</p>
 
       <form id="form-temporada" class="game-form">
         <label>
           Juego
           <select name="game" id="temporada-game" required></select>
         </label>
-        <label>
-          Temporada / Año de inicio
-          <select name="season" required>
-            <option value="">Elegí una opción</option>
-            <option value="2018-o-antes">2018 o antes</option>
-            <option value="2019">2019</option>
-            <option value="2020">2020</option>
-            <option value="2021">2021</option>
-            <option value="2022">2022</option>
-            <option value="2023">2023</option>
-            <option value="2024">2024</option>
-            <option value="2025">2025</option>
-            <option value="2026">2026</option>
-          </select>
+
+        <label id="temporada-dynamic-label" hidden>
+          <span id="temporada-dynamic-text">Opción</span>
+          <select name="season" id="temporada-dynamic-select" required></select>
         </label>
+
+        <label id="temporada-gta-year-label" hidden>
+          <span>¿Desde qué año juegas GTA V? (<output id="temporada-gta-year-output">2013</output>)</span>
+          <input type="range" id="temporada-gta-year" min="2013" max="2026" value="2013">
+        </label>
+
         <button type="submit" class="btn">Guardar respuesta</button>
       </form>
       <p class="result-msg" id="temporada-msg"></p>
     </section>
 
-    <!-- MINIJUEGO 2: VERSUS -->
-    <section id="juego-versus" class="panel" data-panel="versus">
+    <!-- PESTAÑA 2: VERSUS -->
+    <section id="tab-versus" class="panel tab-panel" data-panel="versus">
       <h2 class="panel-title">02 · Tu nota vs. la nota de la crítica</h2>
-      <p class="panel-desc">Calificá del 1 al 10. Te mostramos cómo se compara con la nota promedio de la crítica.</p>
+      <p class="panel-desc">Califica del 1 al 10. Se muestra la comparación con la nota de Metacritic.</p>
 
       <form id="form-versus" class="game-form">
         <label>
           Juego
           <select name="game" id="versus-game" required></select>
         </label>
+
+        <div class="versus-cover" id="versus-cover" hidden>
+          <div class="cover-box" id="versus-cover-box"></div>
+        </div>
+
         <label>
           Tu calificación: <output id="rating-output">7</output>/10
           <input type="range" name="rating" min="1" max="10" value="7" id="rating-slider">
@@ -79,12 +82,12 @@
 
       <div class="versus-meter" id="versus-meter" hidden>
         <div class="meter-row">
-          <span class="meter-label">Vos</span>
+          <span class="meter-label">Tú</span>
           <div class="meter-track"><div class="meter-fill user" id="meter-user"></div></div>
           <span class="meter-value" id="meter-user-value"></span>
         </div>
         <div class="meter-row">
-          <span class="meter-label">Crítica</span>
+          <span class="meter-label">Metacritic</span>
           <div class="meter-track"><div class="meter-fill critic" id="meter-critic"></div></div>
           <span class="meter-value" id="meter-critic-value"></span>
         </div>
@@ -93,29 +96,51 @@
       <p class="result-msg" id="versus-msg"></p>
     </section>
 
-    <!-- MINIJUEGO 3: RANKING COLECTIVO -->
-    <section id="juego-ranking" class="panel" data-panel="ranking">
+    <!-- PESTAÑA 3: RANKING COLECTIVO -->
+    <section id="tab-ranking" class="panel tab-panel" data-panel="ranking">
       <h2 class="panel-title">03 · Ranking de la comunidad</h2>
       <p class="panel-desc">Promedio de todas las votaciones guardadas hasta ahora.</p>
       <button class="btn btn-secondary" id="btn-cargar-ranking">Actualizar ranking</button>
       <table class="ranking-table" id="ranking-table" hidden>
         <thead>
-          <tr><th>Juego</th><th>Promedio usuarios</th><th>Nota crítica</th><th>Votos</th></tr>
+          <tr><th>Juego</th><th>Promedio usuarios</th><th>Metacritic</th><th>Votos</th></tr>
         </thead>
         <tbody id="ranking-body"></tbody>
       </table>
       <p class="result-msg" id="ranking-msg"></p>
     </section>
 
-    <section class="privacy-note">
-      <h3>Sobre tus datos</h3>
-      <p>Este sitio guarda tu voto y un identificador derivado de tu IP (no la IP en texto plano) solo para evitar votos repetidos. No se comparte con terceros. Es un proyecto educativo de diseño web y ciberseguridad.</p>
+    <!-- PESTAÑA 4: AJUSTES -->
+    <section id="tab-ajustes" class="panel tab-panel" data-panel="ajustes">
+      <h2 class="panel-title">04 · Ajustes</h2>
+      <p class="panel-desc">Preferencias de visualización guardadas en este navegador.</p>
+
+      <div class="settings-row">
+        <div class="settings-label">
+          <span>Tema de la página</span>
+          <span class="settings-hint">El modo oscuro está activado de forma predeterminada.</span>
+        </div>
+        <div class="theme-toggle">
+          <button type="button" class="theme-btn active" data-theme="dark">Oscuro</button>
+          <button type="button" class="theme-btn" data-theme="light">Claro</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label">
+          <span>Idioma de la interfaz</span>
+          <span class="settings-hint">Disponible por ahora solo en español.</span>
+        </div>
+        <select class="settings-select" disabled>
+          <option>Español</option>
+        </select>
+      </div>
     </section>
   </main>
 
   <footer class="footer">
     <img src="assets/logo.png" alt="Logo ProfileGaming" class="footer-logo">
-    <p>ProfileGaming — proyecto educativo. Backend propio, sin rastreo de terceros.</p>
+    <p>ProfileGaming: proyecto educativo. Backend propio, sin rastreo de terceros.</p>
     <p class="copyright">© <span id="year"></span> ProfileGaming. Todos los derechos reservados.</p>
   </footer>
 

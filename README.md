@@ -1,4 +1,4 @@
-# ProfileGaming — guía completa (desde cero)
+# ProfileGaming: guía completa (desde cero)
 
 Proyecto de ejemplo: una web con mini juegos de calificación de videojuegos
 (temporada en que jugaste, tu nota vs. la de la crítica, ranking comunitario),
@@ -69,7 +69,7 @@ estáticos) y otro para el backend (necesita un servidor corriendo 24/7).
 ### Backend → Render (capa gratuita)
 1. Subí la carpeta `backend/` a otro repo de GitHub (o el mismo, en subcarpeta).
 2. En [render.com](https://render.com) → New → Web Service → conectá el repo.
-3. Build command: `npm install` — Start command: `npm start`.
+3. Build command: `npm install`: Start command: `npm start`.
 4. En "Environment", agregá las variables `IP_SALT` y `ALLOWED_ORIGINS`
    (poné ahí la URL real de tu GitHub Pages, ej.
    `https://tu-usuario.github.io`).
@@ -90,7 +90,7 @@ y volvé a subir ese archivo a GitHub Pages.
 permanente (se borra en cada redeploy). Para este experimento alcanza, pero
 si querés que los datos persistan de verdad, el siguiente paso natural es
 una base de datos Postgres gratis en [Supabase](https://supabase.com) o
-[Neon](https://neon.tech) — la lógica de "una fila por IP+juego" sería
+[Neon](https://neon.tech): la lógica de "una fila por IP+juego" sería
 prácticamente la misma, solo cambiarías `db.js` por consultas SQL.
 
 ---
@@ -150,7 +150,7 @@ mismo patrón:
    ruta nueva.
 2. **Backend**: agregás una ruta nueva en `server.js` (ej. `/api/genero-favorito`)
    que valide los datos y llame a `addVoteIfNew()` con un `type` distinto.
-3. **Listo** — la misma micro base de datos guarda todo, diferenciado por `type`.
+3. **Listo**: la misma micro base de datos guarda todo, diferenciado por `type`.
 
 Ideas de mini juegos para sumar:
 - "¿Plataforma favorita?" (PC / consola / mobile) con gráfico de torta.
@@ -165,7 +165,7 @@ Ideas de mini juegos para sumar:
 - **Backend**: agregá un endpoint `DELETE` para que un admin pueda borrar
   votos (con una contraseña simple en `.env`, por ejemplo).
 - **Base de datos**: migrá `db.js` de JSON a SQLite (`better-sqlite3`) sin
-  cambiar las rutas de `server.js` — buen ejercicio de "separar capas".
+  cambiar las rutas de `server.js`: buen ejercicio de "separar capas".
 - **Ciberseguridad**: investigá qué es un ataque de *fuerza bruta*, por qué
   el rate limiting ayuda, y qué es OWASP Top 10 (lista de los riesgos web
   más comunes) como siguiente lectura.
