@@ -144,7 +144,7 @@ async function postJSON(path, body) {
   return data;
 }
 
-// --- Pestaña 1: Temporada (con lógica dinámica por tipo de juego) ---
+// --- Pestaña Season (con lógica dinámica por tipo de juego) ---
 const temporadaGameSelect = document.getElementById("temporada-game");
 const dynamicLabel = document.getElementById("temporada-dynamic-label");
 const dynamicText = document.getElementById("temporada-dynamic-text");
@@ -207,7 +207,7 @@ document.getElementById("form-temporada").addEventListener("submit", async (e) =
   }
 });
 
-// --- Pestaña 2: Versus ---
+// --- Pestaña Versus ---
 const slider = document.getElementById("rating-slider");
 const ratingOutput = document.getElementById("rating-output");
 slider.addEventListener("input", () => (ratingOutput.textContent = slider.value));
@@ -276,7 +276,7 @@ document.getElementById("form-versus").addEventListener("submit", async (e) => {
   }
 });
 
-// --- Pestaña 3: Ranking ---
+// --- Pestaña Ranking ---
 document.getElementById("btn-cargar-ranking").addEventListener("click", async () => {
   const msg = document.getElementById("ranking-msg");
   const table = document.getElementById("ranking-table");
@@ -303,18 +303,19 @@ document.getElementById("btn-cargar-ranking").addEventListener("click", async ()
 });
 
 // --- Navegación por pestañas (misma página, sin recargar) ---
-document.querySelectorAll(".nav-link").forEach((link) => {
-  link.addEventListener("click", () => {
-    const tab = link.dataset.tab;
-
-    document.querySelectorAll(".nav-link").forEach((l) => l.classList.remove("active"));
-    link.classList.add("active");
-
-    document.querySelectorAll(".tab-panel").forEach((panel) => {
-      panel.classList.toggle("active", panel.dataset.panel === tab);
-    });
+function switchTab(tab) {
+  document.querySelectorAll(".nav-link").forEach((l) => l.classList.toggle("active", l.dataset.tab === tab));
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.panel === tab);
   });
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+}
+
+document.querySelectorAll(".nav-link").forEach((link) => {
+  link.addEventListener("click", () => switchTab(link.dataset.tab));
 });
+
+document.getElementById("logo-home-btn").addEventListener("click", () => switchTab("inicio"));
 
 // --- Tema oscuro/claro (oscuro por defecto, se guarda en este navegador) ---
 const THEME_KEY = "profilegaming-theme";
@@ -336,6 +337,114 @@ document.querySelectorAll(".theme-btn").forEach((btn) => {
 
 const savedTheme = localStorage.getItem(THEME_KEY) || "dark";
 applyTheme(savedTheme);
+
+// ---------------------------------------------------------------------------
+// Gamertag / nickname, ligado a la IP desde el backend. Se pide una sola vez
+// (primera visita) y se puede cambiar luego desde Ajustes.
+// ---------------------------------------------------------------------------
+const nicknameGate = document.getElementById("nickname-gate");
+const nicknameInput = document.getElementById("nickname-input");
+const nicknameSaveBtn = document.getElementById("nickname-save-btn");
+const nicknameMsg = document.getElementById("nickname-msg");
+const userGreeting = document.getElementById("user-greeting");
+const settingsNicknameInput = document.getElementById("settings-nickname-input");
+const settingsNicknameSave = document.getElementById("settings-nickname-save");
+const settingsNicknameMsg = document.getElementById("settings-nickname-msg");
+
+function showGreeting(nickname) {
+  userGreeting.textContent = `Hola, ${nickname}`;
+  userGreeting.hidden = false;
+  settingsNicknameInput.value = nickname;
+}
+
+async function checkNickname() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/nickname`);
+    const data = await res.json();
+    if (data.nickname) {
+      showGreeting(data.nickname);
+      nicknameGate.hidden = true;
+    } else {
+      nicknameGate.hidden = false;
+      nicknameInput.focus();
+    }
+  } catch {
+    // Si el backend no responde (por ejemplo, todavía no está desplegado),
+    // no bloqueamos el acceso al sitio: simplemente no se pide gamertag.
+    nicknameGate.hidden = true;
+  }
+}
+
+async function saveNickname(nickname, msgEl) {
+  const trimmed = nickname.trim();
+  if (trimmed.length < 2 || trimmed.length > 20) {
+    msgEl.textContent = "El gamertag debe tener entre 2 y 20 caracteres.";
+    return false;
+  }
+  try {
+    const data = await postJSON("/api/nickname", { nickname: trimmed });
+    showGreeting(data.nickname);
+    msgEl.textContent = "";
+    return true;
+  } catch (err) {
+    msgEl.textContent = `Error: ${err.message}`;
+    return false;
+  }
+}
+
+nicknameSaveBtn.addEventListener("click", async () => {
+  const ok = await saveNickname(nicknameInput.value, nicknameMsg);
+  if (ok) nicknameGate.hidden = true;
+});
+
+nicknameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") nicknameSaveBtn.click();
+});
+
+settingsNicknameSave.addEventListener("click", async () => {
+  const ok = await saveNickname(settingsNicknameInput.value, settingsNicknameMsg);
+  if (ok) settingsNicknameMsg.textContent = "Gamertag actualizado.";
+});
+
+checkNickname();
+
+// ---------------------------------------------------------------------------
+// Encuesta de satisfacción en el pie de página. Se pide una sola vez; si ya
+// se envió, se recuerda en este navegador para no volver a preguntar.
+// ---------------------------------------------------------------------------
+const FEEDBACK_KEY = "profilegaming-feedback-sent";
+const feedbackWidget = document.querySelector(".feedback-widget");
+const feedbackStars = document.querySelectorAll(".star-btn");
+const feedbackComment = document.getElementById("feedback-comment");
+const feedbackSubmit = document.getElementById("feedback-submit");
+const feedbackMsg = document.getElementById("feedback-msg");
+let selectedRating = 0;
+
+feedbackStars.forEach((star) => {
+  star.addEventListener("click", () => {
+    selectedRating = Number(star.dataset.value);
+    feedbackStars.forEach((s) => s.classList.toggle("active", Number(s.dataset.value) <= selectedRating));
+  });
+});
+
+feedbackSubmit.addEventListener("click", async () => {
+  if (selectedRating < 1) {
+    feedbackMsg.textContent = "Selecciona una calificación de estrellas.";
+    return;
+  }
+  feedbackMsg.textContent = "Enviando...";
+  try {
+    await postJSON("/api/feedback", { rating: selectedRating, comment: feedbackComment.value.trim() });
+    localStorage.setItem(FEEDBACK_KEY, "1");
+    feedbackWidget.innerHTML = '<p class="feedback-title">¡Gracias por tu opinión!</p>';
+  } catch (err) {
+    feedbackMsg.textContent = `Error: ${err.message}`;
+  }
+});
+
+if (localStorage.getItem(FEEDBACK_KEY) === "1") {
+  feedbackWidget.innerHTML = '<p class="feedback-title">¡Gracias por tu opinión!</p>';
+}
 
 // --- Inicialización general ---
 fillGameSelects();

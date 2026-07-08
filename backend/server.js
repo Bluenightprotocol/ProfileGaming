@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
-const { addVoteIfNew, getRatingVotes } = require("./db");
+const { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -92,6 +92,15 @@ function isValidSeason(game, season) {
   return Array.isArray(options) && options.includes(season);
 }
 
+// Letras (con acentos y ñ), números, espacios, guion y guion bajo. Entre 2 y
+// 20 caracteres. Rechaza etiquetas HTML y símbolos raros sin ser demasiado
+// restrictivo con gamertags reales.
+const NICKNAME_REGEX = /^[\p{L}\p{N} _-]{2,20}$/u;
+
+function isValidNickname(nickname) {
+  return typeof nickname === "string" && NICKNAME_REGEX.test(nickname.trim());
+}
+
 function hashIP(ip) {
   return crypto.createHash("sha256").update(ip + IP_SALT).digest("hex");
 }
@@ -144,6 +153,44 @@ app.get("/api/ranking", (req, res) => {
   });
 
   res.json(ranking);
+});
+
+// Gamertag ligado a la IP. A diferencia de los votos, este sí se puede
+// actualizar (el usuario puede cambiarlo luego desde Ajustes).
+app.get("/api/nickname", (req, res) => {
+  const ipHash = hashIP(getClientIP(req));
+  res.json({ nickname: getNickname(ipHash) });
+});
+
+app.post("/api/nickname", (req, res) => {
+  const { nickname } = req.body || {};
+
+  if (!isValidNickname(nickname)) {
+    return res.status(400).json({ error: "El gamertag debe tener entre 2 y 20 caracteres válidos" });
+  }
+
+  const ipHash = hashIP(getClientIP(req));
+  const clean = nickname.trim();
+  setNickname(ipHash, clean);
+  res.status(200).json({ ok: true, nickname: clean });
+});
+
+// Encuesta de satisfacción del pie de página: calificación de 1 a 5 y
+// comentario opcional. No está ligada a un límite de "una vez por IP" a
+// nivel de servidor porque el frontend ya evita reenvíos repetidos; el
+// límite general de pedidos por minuto sigue aplicando igual.
+app.post("/api/feedback", (req, res) => {
+  const { rating, comment } = req.body || {};
+  const numericRating = Number(rating);
+
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    return res.status(400).json({ error: "Calificación inválida" });
+  }
+  const cleanComment = typeof comment === "string" ? comment.trim().slice(0, 300) : "";
+
+  const ipHash = hashIP(getClientIP(req));
+  addFeedback({ rating: numericRating, comment: cleanComment, ipHash });
+  res.status(201).json({ ok: true });
 });
 
 app.get("/", (req, res) => {

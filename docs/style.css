@@ -20,6 +20,14 @@ html[data-theme="light"]{
   --line:#e0d6f5;
 }
 
+/* Cualquier elemento marcado como "hidden" debe ocultarse siempre, sin
+   importar qué otra regla de display le aplique más abajo en esta hoja.
+   Sin esto, reglas como ".game-form label{display:flex}" o
+   ".versus-cover{display:flex}" terminan ganándole al atributo hidden y el
+   elemento queda visible aunque no debería (por ejemplo, el control de año
+   de GTA V mostrándose para cualquier juego). */
+[hidden]{display:none !important;}
+
 *{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 
@@ -48,35 +56,27 @@ a{color:inherit;}
 }
 html[data-theme="light"] .topbar{background:rgba(244,240,251,0.9);}
 
-.logo{display:flex; align-items:center; gap:12px; font-family:var(--font-display); font-size:12px; letter-spacing:1px;}
+.logo{
+  display:flex; align-items:center; gap:12px; font-family:var(--font-display); font-size:12px; letter-spacing:1px;
+  background:none; border:none; cursor:pointer; padding:4px; border-radius:8px;
+}
+.logo:hover{background:rgba(255,255,255,0.05);}
 .logo-img{height:58px; width:auto;}
 .logo-text .accent{color:var(--accent-cyan);}
 
-.nav{display:flex; align-items:center; gap:22px;}
+.nav{display:flex; align-items:center; gap:20px; overflow-x:auto; scrollbar-width:none; max-width:70vw;}
+.nav::-webkit-scrollbar{display:none;}
 .nav-link{
   font-family:var(--font-body); background:none; border:none; cursor:pointer;
-  text-decoration:none; font-size:13px; color:var(--ink-dim);
+  text-decoration:none; font-size:13px; color:var(--ink-dim); white-space:nowrap;
   padding:6px 2px; border-bottom:2px solid transparent;
 }
 .nav-link:hover, .nav-link.active{color:var(--ink); border-color:var(--accent-magenta);}
 .nav-settings{font-size:18px; padding:2px 4px;}
-.nav-link:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, .theme-btn:focus-visible{
+.user-greeting{font-size:12px; color:var(--accent-yellow); white-space:nowrap;}
+.nav-link:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, .theme-btn:focus-visible, .logo:focus-visible, .star-btn:focus-visible{
   outline:2px solid var(--accent-cyan); outline-offset:2px;
 }
-
-/* Hero */
-.hero{
-  max-width:760px; margin:0 auto; padding:10vw 6vw 5vw; text-align:center;
-}
-.eyebrow{
-  font-family:var(--font-display); font-size:10px; color:var(--accent-yellow);
-  letter-spacing:2px; text-transform:uppercase;
-}
-.hero h1{
-  font-family:var(--font-display); font-size:clamp(20px, 4vw, 32px);
-  line-height:1.5; margin:18px 0;
-}
-.hero-sub{color:var(--ink-dim); font-size:15px; max-width:520px; margin:0 auto;}
 
 /* Tab panels */
 .tab-panel{display:none;}
@@ -157,6 +157,60 @@ output{color:var(--accent-yellow); font-weight:700;}
   border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink-dim);
 }
 
+/* Modal de gamertag (primera visita) */
+.modal-overlay{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(6,3,14,0.82);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+.modal-card{
+  max-width:380px; width:100%; padding:32px 26px; text-align:center;
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+}
+.modal-logo{height:56px; width:auto; margin-bottom:14px;}
+.modal-card h2{font-family:var(--font-display); font-size:15px; margin:0 0 14px; color:var(--accent-cyan);}
+.modal-card p{color:var(--ink-dim); font-size:13px; margin:0 0 18px;}
+.modal-card input{
+  width:100%; font-family:var(--font-body); font-size:14px; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px;
+  margin-bottom:14px;
+}
+
+/* Secciones sin desarrollar todavía */
+.coming-soon{
+  font-size:13px; color:var(--accent-yellow); border:1px dashed var(--line);
+  border-radius:10px; padding:14px; text-align:center;
+}
+
+/* Edición de gamertag en Ajustes */
+.nickname-edit{display:flex; gap:8px; align-items:center;}
+.nickname-edit input{
+  font-family:var(--font-body); font-size:13px; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+  width:150px;
+}
+
+/* Encuesta de satisfacción */
+.feedback-widget{
+  max-width:380px; margin:20px auto; padding:20px;
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  text-align:center;
+}
+.feedback-title{font-size:14px; color:var(--ink); margin:0 0 4px;}
+.feedback-hint{font-size:12px; color:var(--ink-dim); margin:0 0 12px;}
+.stars{display:flex; justify-content:center; gap:6px; margin-bottom:12px;}
+.star-btn{
+  background:none; border:none; cursor:pointer; font-size:24px; color:var(--line); padding:2px;
+  transition:color .15s ease;
+}
+.star-btn.active, .star-btn:hover{color:var(--accent-yellow);}
+.feedback-widget textarea{
+  width:100%; min-height:60px; font-family:var(--font-body); font-size:13px; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px;
+  margin-bottom:12px; resize:vertical;
+}
+
 .footer{text-align:center; padding:30px; color:var(--ink-dim); font-size:12px;}
 .footer-logo{height:60px; width:auto; opacity:0.9; margin-bottom:12px;}
 .footer p{margin:4px 0;}
@@ -176,9 +230,10 @@ output{color:var(--accent-yellow); font-weight:700;}
 }
 @media (max-width:560px){
   .watermark{width:44px; bottom:14px; right:14px;}
-  .nav{gap:12px;}
+  .nav{gap:12px; max-width:60vw;}
   .nav-link{font-size:11px;}
   .logo-img{height:44px;}
+  .user-greeting{display:none;}
 }
 
 @media (prefers-reduced-motion: reduce){
