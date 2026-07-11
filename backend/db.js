@@ -1,4 +1,4 @@
-// db.js — una "micro base de datos" hecha a mano con un archivo JSON.
+// db.js: una "micro base de datos" hecha a mano con un archivo JSON.
 // No es lo que usarías en producción a gran escala, pero para un proyecto
 // chico/educativo es perfecta: simple, gratis y fácil de entender.
 //
@@ -13,7 +13,7 @@ const DB_PATH = path.join(__dirname, "data", "ratings.json");
 
 function ensureDB() {
   if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify({ votes: [] }, null, 2));
+    fs.writeFileSync(DB_PATH, JSON.stringify({ votes: [], nicknames: {}, feedback: [] }, null, 2));
   }
 }
 
@@ -21,9 +21,14 @@ function readDB() {
   ensureDB();
   const raw = fs.readFileSync(DB_PATH, "utf-8");
   try {
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    // Compatibilidad con bases de datos creadas antes de agregar estos campos.
+    if (!data.votes) data.votes = [];
+    if (!data.nicknames) data.nicknames = {};
+    if (!data.feedback) data.feedback = [];
+    return data;
   } catch {
-    return { votes: [] };
+    return { votes: [], nicknames: {}, feedback: [] };
   }
 }
 
@@ -50,4 +55,23 @@ function getRatingVotes() {
   return db.votes.filter((v) => v.type === "rating");
 }
 
-module.exports = { addVoteIfNew, getRatingVotes };
+// El gamertag se guarda uno por IP, pero a diferencia de los votos se puede
+// actualizar (no es "una vez y listo"): por eso es un objeto, no una lista.
+function getNickname(ipHash) {
+  const db = readDB();
+  return db.nicknames[ipHash] || null;
+}
+
+function setNickname(ipHash, nickname) {
+  const db = readDB();
+  db.nicknames[ipHash] = nickname;
+  writeDB(db);
+}
+
+function addFeedback(entry) {
+  const db = readDB();
+  db.feedback.push({ ...entry, createdAt: new Date().toISOString() });
+  writeDB(db);
+}
+
+module.exports = { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback };

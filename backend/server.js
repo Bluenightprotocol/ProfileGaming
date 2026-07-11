@@ -1,4 +1,4 @@
-// server.js — backend del experimento. Comentado paso a paso para que
+// server.js: backend del experimento. Comentado paso a paso para que
 // puedas entender cada decisión de seguridad.
 
 require("dotenv").config();
@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
-const { addVoteIfNew, getRatingVotes } = require("./db");
+const { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,19 +48,58 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// Lista de juegos válidos (debe coincidir con frontend/script.js).
-// Validar contra una lista cerrada evita que guarden datos basura.
+// Catálogo para la ruta /api/rating y /api/ranking (juegos con nota de
+// Metacritic). Debe coincidir con VERSUS_GAMES en frontend/script.js.
+// Cuando "critic" es null, el juego no tiene nota oficial de crítica.
 const VALID_GAMES = {
-  "elden-ring": { name: "Elden Ring", critic: 9.6 },
-  "zelda-totk": { name: "The Legend of Zelda: Tears of the Kingdom", critic: 9.6 },
-  "baldurs-gate-3": { name: "Baldur's Gate 3", critic: 9.6 },
-  "gta-v": { name: "Grand Theft Auto V", critic: 9.7 },
-  "minecraft": { name: "Minecraft", critic: 9.0 },
-  "valorant": { name: "Valorant", critic: 8.0 },
-  "league-of-legends": { name: "League of Legends", critic: 8.2 },
+  "minecraft": { name: "Minecraft", critic: 93 },
+  "fortnite": { name: "Fortnite", critic: 82 },
+  "residentevil": { name: "Resident Evil 4 (2023)", critic: 93 },
+  "gta": { name: "GTA V", critic: 97 },
+  "valorant": { name: "Valorant", critic: null },
+  "brawlstars": { name: "Brawl Stars", critic: null },
+  "overwatch": { name: "Overwatch", critic: null },
 };
 
-const VALID_SEASONS = ["2018-o-antes", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
+// Temporadas/opciones válidas para /api/season, agrupadas por juego porque
+// cada franquicia se mide distinto (versión, temporada, título o año).
+// Debe coincidir con SEASON_GAMES en frontend/script.js.
+const VALID_SEASONS = {
+  minecraft: ["beta-1.7", "1.8", "1.12", "1.14", "1.16", "1.18", "1.19", "1.20", "1.21", "actual"],
+  valorant: yearStrings(2020, 2026),
+  fortnite: ["capitulo-1", "capitulo-2", "capitulo-3", "capitulo-4", "capitulo-5", "capitulo-6", "actual"],
+  residentevil: ["re1", "re2", "re3", "re4", "re5", "re6", "re7", "re2r", "revillage", "re4r"],
+  gta: ["gta3", "gta-vc", "gta-sa", "gta4", ...gtaFiveYearOptions()],
+  brawlstars: yearStrings(2018, 2026),
+  overwatch: yearStrings(2016, 2026),
+};
+
+function yearStrings(start, end) {
+  const years = [];
+  for (let y = start; y <= end; y++) years.push(String(y));
+  return years;
+}
+
+// GTA V es un caso especial: en vez de un solo valor "gta5", el frontend
+// manda "gta5-2013", "gta5-2014", etc., según el año elegido en el control
+// deslizante. Generamos todas las combinaciones válidas de una vez.
+function gtaFiveYearOptions() {
+  return yearStrings(2013, 2026).map((y) => `gta5-${y}`);
+}
+
+function isValidSeason(game, season) {
+  const options = VALID_SEASONS[game];
+  return Array.isArray(options) && options.includes(season);
+}
+
+// Letras (con acentos y ñ), números, espacios, guion y guion bajo. Entre 2 y
+// 20 caracteres. Rechaza etiquetas HTML y símbolos raros sin ser demasiado
+// restrictivo con gamertags reales.
+const NICKNAME_REGEX = /^[\p{L}\p{N} _-]{2,20}$/u;
+
+function isValidNickname(nickname) {
+  return typeof nickname === "string" && NICKNAME_REGEX.test(nickname.trim());
+}
 
 function hashIP(ip) {
   return crypto.createHash("sha256").update(ip + IP_SALT).digest("hex");
@@ -77,7 +116,7 @@ app.post("/api/season", (req, res) => {
   const { game, season } = req.body || {};
 
   if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
-  if (!VALID_SEASONS.includes(season)) return res.status(400).json({ error: "Temporada inválida" });
+  if (!isValidSeason(game, season)) return res.status(400).json({ error: "Temporada inválida" });
 
   const ipHash = hashIP(getClientIP(req));
   const result = addVoteIfNew({ type: "season", game, season, ipHash });
@@ -116,8 +155,46 @@ app.get("/api/ranking", (req, res) => {
   res.json(ranking);
 });
 
+// Gamertag ligado a la IP. A diferencia de los votos, este sí se puede
+// actualizar (el usuario puede cambiarlo luego desde Ajustes).
+app.get("/api/nickname", (req, res) => {
+  const ipHash = hashIP(getClientIP(req));
+  res.json({ nickname: getNickname(ipHash) });
+});
+
+app.post("/api/nickname", (req, res) => {
+  const { nickname } = req.body || {};
+
+  if (!isValidNickname(nickname)) {
+    return res.status(400).json({ error: "El gamertag debe tener entre 2 y 20 caracteres válidos" });
+  }
+
+  const ipHash = hashIP(getClientIP(req));
+  const clean = nickname.trim();
+  setNickname(ipHash, clean);
+  res.status(200).json({ ok: true, nickname: clean });
+});
+
+// Encuesta de satisfacción del pie de página: calificación de 1 a 5 y
+// comentario opcional. No está ligada a un límite de "una vez por IP" a
+// nivel de servidor porque el frontend ya evita reenvíos repetidos; el
+// límite general de pedidos por minuto sigue aplicando igual.
+app.post("/api/feedback", (req, res) => {
+  const { rating, comment } = req.body || {};
+  const numericRating = Number(rating);
+
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    return res.status(400).json({ error: "Calificación inválida" });
+  }
+  const cleanComment = typeof comment === "string" ? comment.trim().slice(0, 300) : "";
+
+  const ipHash = hashIP(getClientIP(req));
+  addFeedback({ rating: numericRating, comment: cleanComment, ipHash });
+  res.status(201).json({ ok: true });
+});
+
 app.get("/", (req, res) => {
-  res.send("ProfileGaming API funcionando. Mirá /api/ranking para ver datos.");
+  res.send("ProfileGaming API funcionando. Consulta /api/ranking para ver datos.");
 });
 
 app.listen(PORT, () => {
