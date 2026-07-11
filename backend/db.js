@@ -10,8 +10,16 @@ const fs = require("fs");
 const path = require("path");
 
 const DB_PATH = path.join(__dirname, "data", "ratings.json");
+const DB_DIR = path.join(__dirname, "data");
 
 function ensureDB() {
+  // Git no versiona carpetas vacías, así que en un servidor recién clonado
+  // (por ejemplo, en cada despliegue nuevo de Render) esta carpeta puede no
+  // existir todavía. La creamos nosotros mismos antes de escribir el archivo,
+  // en vez de depender de que ya esté ahí.
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
   if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify({ votes: [], nicknames: {}, feedback: [] }, null, 2));
   }
