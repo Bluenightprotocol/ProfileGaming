@@ -7,7 +7,8 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
-const { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback } = require("./db");
+const { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll } = require("./db");
+const { encryptIP, decryptIP } = require("./crypto-utils");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,11 @@ const PORT = process.env.PORT || 3000;
 // ni comparar contra listas de IPs ya conocidas. Va en una variable de
 // entorno (.env), nunca hardcodeada ni subida a GitHub.
 const IP_SALT = process.env.IP_SALT || "cambia-esta-sal-en-produccion";
+
+// Clave para poder consultar /api/admin/export y ver todos los datos
+// guardados (gamertags, votos, opiniones). Si no se configura, la ruta
+// queda bloqueada por completo: nadie puede ver los datos sin esta clave.
+const ADMIN_KEY = process.env.ADMIN_KEY || null;
 
 // Si tu hosting (Render, Railway, etc.) está detrás de un proxy/balanceador,
 // esto le dice a Express que confíe en el header X-Forwarded-For para
@@ -118,8 +124,9 @@ app.post("/api/season", (req, res) => {
   if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
   if (!isValidSeason(game, season)) return res.status(400).json({ error: "Temporada inválida" });
 
-  const ipHash = hashIP(getClientIP(req));
-  const result = addVoteIfNew({ type: "season", game, season, ipHash });
+  const rawIP = getClientIP(req);
+  const ipHash = hashIP(rawIP);
+  const result = addVoteIfNew({ type: "season", game, season, ipHash, ipEncrypted: encryptIP(rawIP) });
 
   if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
   res.status(201).json({ ok: true });
@@ -134,8 +141,9 @@ app.post("/api/rating", (req, res) => {
     return res.status(400).json({ error: "Calificación inválida" });
   }
 
-  const ipHash = hashIP(getClientIP(req));
-  const result = addVoteIfNew({ type: "rating", game, rating: numericRating, ipHash });
+  const rawIP = getClientIP(req);
+  const ipHash = hashIP(rawIP);
+  const result = addVoteIfNew({ type: "rating", game, rating: numericRating, ipHash, ipEncrypted: encryptIP(rawIP) });
 
   if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
   res.status(201).json({ ok: true });
@@ -169,9 +177,10 @@ app.post("/api/nickname", (req, res) => {
     return res.status(400).json({ error: "El gamertag debe tener entre 2 y 20 caracteres válidos" });
   }
 
-  const ipHash = hashIP(getClientIP(req));
+  const rawIP = getClientIP(req);
+  const ipHash = hashIP(rawIP);
   const clean = nickname.trim();
-  setNickname(ipHash, clean);
+  setNickname(ipHash, clean, encryptIP(rawIP));
   res.status(200).json({ ok: true, nickname: clean });
 });
 
@@ -188,15 +197,65 @@ app.post("/api/feedback", (req, res) => {
   }
   const cleanComment = typeof comment === "string" ? comment.trim().slice(0, 300) : "";
 
-  const ipHash = hashIP(getClientIP(req));
-  addFeedback({ rating: numericRating, comment: cleanComment, ipHash });
+  const rawIP = getClientIP(req);
+  const ipHash = hashIP(rawIP);
+  addFeedback({ rating: numericRating, comment: cleanComment, ipHash, ipEncrypted: encryptIP(rawIP) });
   res.status(201).json({ ok: true });
+});
+
+// Ruta para vos, como administrador del sitio, para ver todo lo que se
+// guardó: gamertags, votos y opiniones, cada uno con su IP descifrada (si
+// IP_ENCRYPTION_KEY está configurada). Requiere la clave secreta como
+// parámetro: https://tu-backend.onrender.com/api/admin/export?key=TU_CLAVE
+function withDecryptedIP(record) {
+  if (!record || !record.ipEncrypted) return record;
+  try {
+    return { ...record, ip: decryptIP(record.ipEncrypted) };
+  } catch {
+    // Sin IP_ENCRYPTION_KEY configurada (o clave distinta a la usada al
+    // cifrar), se devuelve el registro tal cual, sin la IP en claro.
+    return record;
+  }
+}
+
+app.get("/api/admin/export", (req, res) => {
+  if (!ADMIN_KEY) {
+    return res.status(503).json({ error: "ADMIN_KEY no configurada en el servidor" });
+  }
+  if (req.query.key !== ADMIN_KEY) {
+    return res.status(401).json({ error: "Clave incorrecta" });
+  }
+
+  const data = getAll();
+  res.json({
+    votes: data.votes.map(withDecryptedIP),
+    nicknames: Object.fromEntries(
+      Object.entries(data.nicknames).map(([ipHash, entry]) => [ipHash, withDecryptedIP(entry)])
+    ),
+    feedback: data.feedback.map(withDecryptedIP),
+  });
 });
 
 app.get("/", (req, res) => {
   res.send("ProfileGaming API funcionando. Consulta /api/ranking para ver datos.");
 });
 
+// Manejador de errores global: si algo revienta (por ejemplo, un pedido de
+// guardar datos cuando falta IP_ENCRYPTION_KEY), esto devuelve un JSON claro
+// en vez de la página de error HTML por defecto de Express, que el frontend
+// no podría interpretar.
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Error interno del servidor. Revisá los logs para más detalle." });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  const keyOk = process.env.IP_ENCRYPTION_KEY && process.env.IP_ENCRYPTION_KEY.length === 64;
+  if (!keyOk) {
+    console.warn(
+      "ADVERTENCIA: IP_ENCRYPTION_KEY no está configurada (o no mide 64 caracteres). " +
+        "Guardar cualquier voto, gamertag u opinión va a fallar hasta que la configures."
+    );
+  }
 });

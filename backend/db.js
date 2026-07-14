@@ -67,12 +67,13 @@ function getRatingVotes() {
 // actualizar (no es "una vez y listo"): por eso es un objeto, no una lista.
 function getNickname(ipHash) {
   const db = readDB();
-  return db.nicknames[ipHash] || null;
+  const entry = db.nicknames[ipHash];
+  return entry ? entry.nickname : null;
 }
 
-function setNickname(ipHash, nickname) {
+function setNickname(ipHash, nickname, ipEncrypted) {
   const db = readDB();
-  db.nicknames[ipHash] = nickname;
+  db.nicknames[ipHash] = { nickname, ipEncrypted, updatedAt: new Date().toISOString() };
   writeDB(db);
 }
 
@@ -82,4 +83,10 @@ function addFeedback(entry) {
   writeDB(db);
 }
 
-module.exports = { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback };
+// Devuelve toda la base de datos tal cual está guardada. Se usa solo desde
+// la ruta protegida /api/admin/export en server.js.
+function getAll() {
+  return readDB();
+}
+
+module.exports = { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll };
