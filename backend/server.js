@@ -26,7 +26,15 @@ const ADMIN_KEY = process.env.ADMIN_KEY || null;
 // Si tu hosting (Render, Railway, etc.) está detrás de un proxy/balanceador,
 // esto le dice a Express que confíe en el header X-Forwarded-For para
 // obtener la IP real del visitante en vez de la IP del proxy.
-app.set("trust proxy", 1);
+// Render tiene más de un salto de proxy interno antes de llegar a este
+// servidor. Con solo 1 salto de confianza, Express se quedaba con la IP de
+// un salto interno (algo como 10.x.x.x, una IP privada de centro de datos),
+// no con la IP pública real de quien visita el sitio. "true" le dice a
+// Express que confíe en toda la cadena y tome la primera IP de la lista
+// (la del origen real), que es lo que Render efectivamente respeta: la
+// única forma de llegar a este servidor es a través de su proxy, así que
+// nadie externo puede falsificar ese encabezado por su cuenta.
+app.set("trust proxy", true);
 
 // --- Seguridad básica ---
 app.use(helmet()); // cabeceras HTTP seguras (XSS, sniffing, etc.)
