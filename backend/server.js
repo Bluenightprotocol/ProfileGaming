@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
-const { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll } = require("./db");
+const { initDB, addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll } = require("./db");
 const { encryptIP, decryptIP } = require("./crypto-utils");
 
 const app = express();
@@ -126,89 +126,113 @@ function getClientIP(req) {
 
 // --- Rutas ---
 
-app.post("/api/season", (req, res) => {
-  const { game, season } = req.body || {};
+app.post("/api/season", async (req, res, next) => {
+  try {
+    const { game, season } = req.body || {};
 
-  if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
-  if (!isValidSeason(game, season)) return res.status(400).json({ error: "Temporada inválida" });
+    if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
+    if (!isValidSeason(game, season)) return res.status(400).json({ error: "Temporada inválida" });
 
-  const rawIP = getClientIP(req);
-  const ipHash = hashIP(rawIP);
-  const result = addVoteIfNew({ type: "season", game, season, ipHash, ipEncrypted: encryptIP(rawIP) });
+    const rawIP = getClientIP(req);
+    const ipHash = hashIP(rawIP);
+    const result = await addVoteIfNew({ type: "season", game, season, ipHash, ipEncrypted: encryptIP(rawIP) });
 
-  if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
-  res.status(201).json({ ok: true });
-});
-
-app.post("/api/rating", (req, res) => {
-  const { game, rating } = req.body || {};
-  const numericRating = Number(rating);
-
-  if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
-  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 10) {
-    return res.status(400).json({ error: "Calificación inválida" });
+    if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
   }
-
-  const rawIP = getClientIP(req);
-  const ipHash = hashIP(rawIP);
-  const result = addVoteIfNew({ type: "rating", game, rating: numericRating, ipHash, ipEncrypted: encryptIP(rawIP) });
-
-  if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
-  res.status(201).json({ ok: true });
 });
 
-app.get("/api/ranking", (req, res) => {
-  const votes = getRatingVotes();
+app.post("/api/rating", async (req, res, next) => {
+  try {
+    const { game, rating } = req.body || {};
+    const numericRating = Number(rating);
 
-  const ranking = Object.entries(VALID_GAMES).map(([id, info]) => {
-    const gameVotes = votes.filter((v) => v.game === id);
-    const avg = gameVotes.length
-      ? Number((gameVotes.reduce((sum, v) => sum + v.rating, 0) / gameVotes.length).toFixed(2))
-      : null;
-    return { id, name: info.name, critic: info.critic, avgUserRating: avg, votes: gameVotes.length };
-  });
+    if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 10) {
+      return res.status(400).json({ error: "Calificación inválida" });
+    }
 
-  res.json(ranking);
+    const rawIP = getClientIP(req);
+    const ipHash = hashIP(rawIP);
+    const result = await addVoteIfNew({ type: "rating", game, rating: numericRating, ipHash, ipEncrypted: encryptIP(rawIP) });
+
+    if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/ranking", async (req, res, next) => {
+  try {
+    const votes = await getRatingVotes();
+
+    const ranking = Object.entries(VALID_GAMES).map(([id, info]) => {
+      const gameVotes = votes.filter((v) => v.game === id);
+      const avg = gameVotes.length
+        ? Number((gameVotes.reduce((sum, v) => sum + v.rating, 0) / gameVotes.length).toFixed(2))
+        : null;
+      return { id, name: info.name, critic: info.critic, avgUserRating: avg, votes: gameVotes.length };
+    });
+
+    res.json(ranking);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Gamertag ligado a la IP. A diferencia de los votos, este sí se puede
 // actualizar (el usuario puede cambiarlo luego desde Ajustes).
-app.get("/api/nickname", (req, res) => {
-  const ipHash = hashIP(getClientIP(req));
-  res.json({ nickname: getNickname(ipHash) });
+app.get("/api/nickname", async (req, res, next) => {
+  try {
+    const ipHash = hashIP(getClientIP(req));
+    res.json({ nickname: await getNickname(ipHash) });
+  } catch (err) {
+    next(err);
+  }
 });
 
-app.post("/api/nickname", (req, res) => {
-  const { nickname } = req.body || {};
+app.post("/api/nickname", async (req, res, next) => {
+  try {
+    const { nickname } = req.body || {};
 
-  if (!isValidNickname(nickname)) {
-    return res.status(400).json({ error: "El gamertag debe tener entre 2 y 20 caracteres válidos" });
+    if (!isValidNickname(nickname)) {
+      return res.status(400).json({ error: "El gamertag debe tener entre 2 y 20 caracteres válidos" });
+    }
+
+    const rawIP = getClientIP(req);
+    const ipHash = hashIP(rawIP);
+    const clean = nickname.trim();
+    await setNickname(ipHash, clean, encryptIP(rawIP));
+    res.status(200).json({ ok: true, nickname: clean });
+  } catch (err) {
+    next(err);
   }
-
-  const rawIP = getClientIP(req);
-  const ipHash = hashIP(rawIP);
-  const clean = nickname.trim();
-  setNickname(ipHash, clean, encryptIP(rawIP));
-  res.status(200).json({ ok: true, nickname: clean });
 });
 
 // Encuesta de satisfacción del pie de página: calificación de 1 a 5 y
 // comentario opcional. No está ligada a un límite de "una vez por IP" a
 // nivel de servidor porque el frontend ya evita reenvíos repetidos; el
 // límite general de pedidos por minuto sigue aplicando igual.
-app.post("/api/feedback", (req, res) => {
-  const { rating, comment } = req.body || {};
-  const numericRating = Number(rating);
+app.post("/api/feedback", async (req, res, next) => {
+  try {
+    const { rating, comment } = req.body || {};
+    const numericRating = Number(rating);
 
-  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
-    return res.status(400).json({ error: "Calificación inválida" });
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({ error: "Calificación inválida" });
+    }
+    const cleanComment = typeof comment === "string" ? comment.trim().slice(0, 300) : "";
+
+    const rawIP = getClientIP(req);
+    const ipHash = hashIP(rawIP);
+    await addFeedback({ rating: numericRating, comment: cleanComment, ipHash, ipEncrypted: encryptIP(rawIP) });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
   }
-  const cleanComment = typeof comment === "string" ? comment.trim().slice(0, 300) : "";
-
-  const rawIP = getClientIP(req);
-  const ipHash = hashIP(rawIP);
-  addFeedback({ rating: numericRating, comment: cleanComment, ipHash, ipEncrypted: encryptIP(rawIP) });
-  res.status(201).json({ ok: true });
 });
 
 // Ruta para vos, como administrador del sitio, para ver todo lo que se
@@ -226,22 +250,26 @@ function withDecryptedIP(record) {
   }
 }
 
-app.get("/api/admin/export", (req, res) => {
-  if (!ADMIN_KEY) {
-    return res.status(503).json({ error: "ADMIN_KEY no configurada en el servidor" });
-  }
-  if (req.query.key !== ADMIN_KEY) {
-    return res.status(401).json({ error: "Clave incorrecta" });
-  }
+app.get("/api/admin/export", async (req, res, next) => {
+  try {
+    if (!ADMIN_KEY) {
+      return res.status(503).json({ error: "ADMIN_KEY no configurada en el servidor" });
+    }
+    if (req.query.key !== ADMIN_KEY) {
+      return res.status(401).json({ error: "Clave incorrecta" });
+    }
 
-  const data = getAll();
-  res.json({
-    votes: data.votes.map(withDecryptedIP),
-    nicknames: Object.fromEntries(
-      Object.entries(data.nicknames).map(([ipHash, entry]) => [ipHash, withDecryptedIP(entry)])
-    ),
-    feedback: data.feedback.map(withDecryptedIP),
-  });
+    const data = await getAll();
+    res.json({
+      votes: data.votes.map(withDecryptedIP),
+      nicknames: Object.fromEntries(
+        Object.entries(data.nicknames).map(([ipHash, entry]) => [ipHash, withDecryptedIP(entry)])
+      ),
+      feedback: data.feedback.map(withDecryptedIP),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/", (req, res) => {
@@ -257,13 +285,33 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor. Revisá los logs para más detalle." });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  const keyOk = process.env.IP_ENCRYPTION_KEY && process.env.IP_ENCRYPTION_KEY.length === 64;
-  if (!keyOk) {
-    console.warn(
-      "ADVERTENCIA: IP_ENCRYPTION_KEY no está configurada (o no mide 64 caracteres). " +
-        "Guardar cualquier voto, gamertag u opinión va a fallar hasta que la configures."
+async function start() {
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      "ERROR: falta la variable de entorno DATABASE_URL (la cadena de conexión a Postgres). " +
+        "El servidor no puede arrancar sin ella."
     );
+    process.exit(1);
   }
-});
+
+  try {
+    await initDB();
+    console.log("Base de datos conectada y tablas verificadas.");
+  } catch (err) {
+    console.error("ERROR: no se pudo conectar a la base de datos.", err);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    const keyOk = process.env.IP_ENCRYPTION_KEY && process.env.IP_ENCRYPTION_KEY.length === 64;
+    if (!keyOk) {
+      console.warn(
+        "ADVERTENCIA: IP_ENCRYPTION_KEY no está configurada (o no mide 64 caracteres). " +
+          "Guardar cualquier voto, gamertag u opinión va a fallar hasta que la configures."
+      );
+    }
+  });
+}
+
+start();

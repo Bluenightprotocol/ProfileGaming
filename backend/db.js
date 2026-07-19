@@ -1,92 +1,151 @@
-// db.js: una "micro base de datos" hecha a mano con un archivo JSON.
-// No es lo que usarías en producción a gran escala, pero para un proyecto
-// chico/educativo es perfecta: simple, gratis y fácil de entender.
+// db.js: capa de guardado usando una base de datos Postgres real (por
+// ejemplo, la que da Supabase gratis), en vez de un archivo JSON en disco.
 //
-// Si más adelante querés algo más serio y siguiendo gratis, las opciones
-// típicas son SQLite (better-sqlite3) o un Postgres gratis en Supabase/Neon.
-// La lógica de "una fila por voto" sería casi idéntica.
+// Se cambió por esto porque el archivo JSON vivía en el disco del propio
+// servidor de Render, y ese disco se borra cada vez que el servicio se
+// reinicia, se redespliega o se "duerme" por inactividad (algo que Render
+// hace solo, a los 15 minutos sin tráfico, en el plan gratuito). Una base
+// de datos como Supabase vive aparte, en su propia infraestructura, así que
+// los datos sobreviven sin importar qué le pase al servidor de Render.
 
-const fs = require("fs");
-const path = require("path");
+const { Pool } = require("pg");
 
-const DB_PATH = path.join(__dirname, "data", "ratings.json");
-const DB_DIR = path.join(__dirname, "data");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Supabase, Neon y la mayoría de los Postgres gratuitos alojados piden
+  // conexión con SSL, pero con un certificado que Node no reconoce como
+  // "de confianza" por defecto. Esto le dice que la conexión igual está
+  // cifrada, solo que no valide la cadena de certificados contra una
+  // autoridad conocida (práctica habitual para este tipo de servicios).
+  ssl: { rejectUnauthorized: false },
+});
 
-function ensureDB() {
-  // Git no versiona carpetas vacías, así que en un servidor recién clonado
-  // (por ejemplo, en cada despliegue nuevo de Render) esta carpeta puede no
-  // existir todavía. La creamos nosotros mismos antes de escribir el archivo,
-  // en vez de depender de que ya esté ahí.
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify({ votes: [], nicknames: {}, feedback: [] }, null, 2));
-  }
+// Crea las tablas si todavía no existen. Se llama una sola vez, al iniciar
+// el servidor (ver server.js). "IF NOT EXISTS" hace que sea seguro llamarlo
+// cada vez que el servidor arranca, sin duplicar ni borrar nada.
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS votes (
+      id SERIAL PRIMARY KEY,
+      type TEXT NOT NULL,
+      game TEXT NOT NULL,
+      season TEXT,
+      rating INTEGER,
+      ip_hash TEXT NOT NULL,
+      ip_encrypted TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nicknames (
+      ip_hash TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL,
+      ip_encrypted TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      ip_hash TEXT NOT NULL,
+      ip_encrypted TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
 }
 
-function readDB() {
-  ensureDB();
-  const raw = fs.readFileSync(DB_PATH, "utf-8");
-  try {
-    const data = JSON.parse(raw);
-    // Compatibilidad con bases de datos creadas antes de agregar estos campos.
-    if (!data.votes) data.votes = [];
-    if (!data.nicknames) data.nicknames = {};
-    if (!data.feedback) data.feedback = [];
-    return data;
-  } catch {
-    return { votes: [], nicknames: {}, feedback: [] };
-  }
-}
-
-function writeDB(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
-
-// Guarda un voto si no existe ya uno igual (mismo ipHash + game + type).
+// Guarda un voto si no existe ya uno igual (mismo ip_hash + game + type).
 // Devuelve { ok: true } o { ok: false, reason: "duplicado" }.
-function addVoteIfNew(vote) {
-  const db = readDB();
-  const exists = db.votes.some(
-    (v) => v.ipHash === vote.ipHash && v.game === vote.game && v.type === vote.type
-  );
-  if (exists) return { ok: false, reason: "duplicado" };
+async function addVoteIfNew(vote) {
+  const { type, game, season = null, rating = null, ipHash, ipEncrypted } = vote;
 
-  db.votes.push({ ...vote, createdAt: new Date().toISOString() });
-  writeDB(db);
+  const existing = await pool.query(
+    `SELECT id FROM votes WHERE ip_hash = $1 AND game = $2 AND type = $3`,
+    [ipHash, game, type]
+  );
+  if (existing.rows.length > 0) return { ok: false, reason: "duplicado" };
+
+  await pool.query(
+    `INSERT INTO votes (type, game, season, rating, ip_hash, ip_encrypted)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [type, game, season, rating, ipHash, ipEncrypted]
+  );
   return { ok: true };
 }
 
-function getRatingVotes() {
-  const db = readDB();
-  return db.votes.filter((v) => v.type === "rating");
+async function getRatingVotes() {
+  const result = await pool.query(`SELECT * FROM votes WHERE type = 'rating'`);
+  return result.rows.map(rowToVote);
+}
+
+function rowToVote(row) {
+  return {
+    type: row.type,
+    game: row.game,
+    season: row.season,
+    rating: row.rating,
+    ipHash: row.ip_hash,
+    ipEncrypted: row.ip_encrypted,
+    createdAt: row.created_at,
+  };
 }
 
 // El gamertag se guarda uno por IP, pero a diferencia de los votos se puede
-// actualizar (no es "una vez y listo"): por eso es un objeto, no una lista.
-function getNickname(ipHash) {
-  const db = readDB();
-  const entry = db.nicknames[ipHash];
-  return entry ? entry.nickname : null;
+// actualizar (no es "una vez y listo").
+async function getNickname(ipHash) {
+  const result = await pool.query(`SELECT nickname FROM nicknames WHERE ip_hash = $1`, [ipHash]);
+  return result.rows.length > 0 ? result.rows[0].nickname : null;
 }
 
-function setNickname(ipHash, nickname, ipEncrypted) {
-  const db = readDB();
-  db.nicknames[ipHash] = { nickname, ipEncrypted, updatedAt: new Date().toISOString() };
-  writeDB(db);
+async function setNickname(ipHash, nickname, ipEncrypted) {
+  await pool.query(
+    `INSERT INTO nicknames (ip_hash, nickname, ip_encrypted, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (ip_hash)
+     DO UPDATE SET nickname = $2, ip_encrypted = $3, updated_at = now()`,
+    [ipHash, nickname, ipEncrypted]
+  );
 }
 
-function addFeedback(entry) {
-  const db = readDB();
-  db.feedback.push({ ...entry, createdAt: new Date().toISOString() });
-  writeDB(db);
+async function addFeedback(entry) {
+  const { rating, comment, ipHash, ipEncrypted } = entry;
+  await pool.query(
+    `INSERT INTO feedback (rating, comment, ip_hash, ip_encrypted) VALUES ($1, $2, $3, $4)`,
+    [rating, comment, ipHash, ipEncrypted]
+  );
 }
 
-// Devuelve toda la base de datos tal cual está guardada. Se usa solo desde
-// la ruta protegida /api/admin/export en server.js.
-function getAll() {
-  return readDB();
+// Devuelve todo lo guardado, en la misma forma que usaba el archivo JSON
+// anterior, para que /api/admin/export en server.js no tenga que cambiar.
+async function getAll() {
+  const [votes, nicknames, feedback] = await Promise.all([
+    pool.query(`SELECT * FROM votes ORDER BY created_at`),
+    pool.query(`SELECT * FROM nicknames`),
+    pool.query(`SELECT * FROM feedback ORDER BY created_at`),
+  ]);
+
+  const nicknamesObj = {};
+  for (const row of nicknames.rows) {
+    nicknamesObj[row.ip_hash] = {
+      nickname: row.nickname,
+      ipEncrypted: row.ip_encrypted,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  return {
+    votes: votes.rows.map(rowToVote),
+    nicknames: nicknamesObj,
+    feedback: feedback.rows.map((row) => ({
+      rating: row.rating,
+      comment: row.comment,
+      ipHash: row.ip_hash,
+      ipEncrypted: row.ip_encrypted,
+      createdAt: row.created_at,
+    })),
+  };
 }
 
-module.exports = { addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll };
+module.exports = { initDB, addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll };
