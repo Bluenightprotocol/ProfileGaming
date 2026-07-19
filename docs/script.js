@@ -1,7 +1,7 @@
 // script.js: lógica del frontend de ProfileGaming
 
 // ⚠️ Cambia esto por la URL real del backend cuando esté desplegado (ver README).
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://profilegaming.onrender.com";
 
 // ---------------------------------------------------------------------------
 // Catálogo para la pestaña "Temporada": cada juego define cómo se pregunta
