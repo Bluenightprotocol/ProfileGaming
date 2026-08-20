@@ -54,6 +54,15 @@ async function initDB() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
+
+  // Supabase expone automáticamente una API REST pública para cada tabla,
+  // salvo que se active "Row-Level Security" (seguridad a nivel de fila).
+  // Nuestro backend nunca usa esa API (se conecta directo con usuario y
+  // contraseña), así que activarla no afecta nada de lo que ya funciona;
+  // solo cierra una puerta pública que no estábamos usando de todas formas.
+  await pool.query(`ALTER TABLE votes ENABLE ROW LEVEL SECURITY;`);
+  await pool.query(`ALTER TABLE nicknames ENABLE ROW LEVEL SECURITY;`);
+  await pool.query(`ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;`);
 }
 
 // Guarda un voto si no existe ya uno igual (mismo ip_hash + game + type).
