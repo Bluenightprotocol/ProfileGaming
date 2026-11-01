@@ -283,3 +283,94 @@ output{color:var(--accent-yellow); font-weight:700;}
   .feedback-title{font-size:16px;}
   .feedback-hint{font-size:13px;}
 }
+
+/* ===== Menú de secciones (desplegable en pantallas chicas, en línea en escritorio) ===== */
+.menu-wrap{position:relative; display:flex; align-items:center; gap:14px;}
+.menu-toggle{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-body); font-size:13px; color:var(--ink);
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:10px;
+  padding:9px 14px; cursor:pointer; max-width:52vw;
+}
+.menu-toggle #menu-current{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.menu-chevron{transition:transform .2s ease; color:var(--accent-cyan);}
+.menu-toggle[aria-expanded="true"] .menu-chevron{transform:rotate(180deg);}
+
+.site-menu{
+  display:none;
+  position:absolute; top:calc(100% + 10px); right:0; z-index:20;
+  width:min(280px, 86vw); padding:8px;
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 20px 40px -15px rgba(0,0,0,0.6);
+  flex-direction:column; gap:2px;
+}
+.site-menu.open{display:flex;}
+.menu-item{
+  font-family:var(--font-body); font-size:14px; text-align:left; color:var(--ink-dim);
+  background:none; border:none; border-radius:8px; padding:11px 12px; cursor:pointer;
+}
+.menu-item:hover{background:rgba(255,255,255,0.05); color:var(--ink);}
+.menu-item.active{color:var(--ink); background:rgba(62,240,201,0.12); box-shadow:inset 3px 0 0 var(--accent-cyan);}
+.menu-toggle:focus-visible, .menu-item:focus-visible{outline:2px solid var(--accent-cyan); outline-offset:2px;}
+
+@media (min-width:1100px){
+  .menu-toggle{display:none;}
+  .site-menu{
+    display:flex; position:static; flex-direction:row; width:auto; padding:0;
+    background:none; border:none; box-shadow:none; gap:18px;
+  }
+  .menu-item{padding:6px 2px; border-radius:0; border-bottom:2px solid transparent; font-size:14px; white-space:nowrap;}
+  .menu-item:hover{background:none;}
+  .menu-item.active{background:none; box-shadow:none; border-bottom-color:var(--accent-magenta);}
+}
+
+/* ===== Tarjeta de juego (imagen + nombre) ===== */
+.game-card{display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center;}
+.game-card-frame{
+  width:100%; max-width:340px; aspect-ratio:16 / 9; border-radius:14px; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--line); box-shadow:0 14px 30px -18px rgba(0,0,0,0.7);
+}
+.game-card-frame img{width:100%; height:100%; object-fit:cover; display:block;}
+.game-card-fallback{
+  font-family:var(--font-display); font-size:13px; line-height:1.6; color:#fff; padding:14px;
+  text-shadow:0 2px 6px rgba(0,0,0,0.45);
+}
+.game-card-name{font-family:var(--font-display); font-size:13px; line-height:1.6; margin:0; color:var(--ink);}
+.game-card-meta{font-size:12px; color:var(--ink-dim); margin:0;}
+.game-clue{
+  font-size:14px; line-height:1.65; color:var(--ink-dim); margin:4px 0 0; text-align:left;
+  border-left:3px solid var(--accent-magenta); padding:2px 0 2px 12px;
+}
+
+/* ===== Adivinanza de la nota ===== */
+.guess-block{display:flex; flex-direction:column; gap:14px;}
+.guess-block label{font-size:13px; color:var(--ink-dim);}
+.guess-row{display:flex; align-items:center; gap:12px;}
+.guess-row input[type="range"]{flex:1;}
+.guess-row input[type="number"]{
+  width:78px; font-family:var(--font-body); font-size:15px; text-align:center; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 6px;
+}
+.versus-link{
+  display:inline-block; margin-top:6px; font-size:13px; color:var(--accent-cyan);
+  text-decoration:underline; text-underline-offset:3px;
+}
+.versus-link:hover{color:var(--accent-magenta);}
+
+@media (min-width:700px){
+  .game-card-frame{max-width:380px;}
+  .game-card-name{font-size:15px;}
+  .game-clue{font-size:15px;}
+  .guess-block label{font-size:14px;}
+}
+
+/* ===== ESBOZO DEL EASTER EGG (desactivado) =====
+   Estos estilos se activan junto con el bloque comentado de index.html
+   (dentro de Who Is This?) y EASTER_EGG_ENABLED en script.js.
+
+.egg-trigger{width:28px; opacity:0.04; cursor:pointer; display:block; margin:24px auto 0;}
+.egg-page{margin-top:24px;}
+.egg-section{border:1px dashed var(--line); border-radius:12px; padding:16px; margin-bottom:14px;}
+.egg-section[data-locked="true"] .egg-content{display:none;}
+*/

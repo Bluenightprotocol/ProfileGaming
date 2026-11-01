@@ -24,21 +24,28 @@
   </div>
 
   <header class="topbar">
-    <button class="logo" id="logo-home-btn" type="button" aria-label="Ir a Inicio">
+    <button class="logo" id="logo-home-btn" type="button" aria-label="Ir a Home">
       <img src="assets/logo.png" alt="Logo ProfileGaming" class="logo-img">
       <span class="logo-text">PROFILE<span class="accent">GAMING</span></span>
     </button>
-    <nav class="nav">
-      <button class="nav-link" data-tab="season" type="button">Season</button>
-      <button class="nav-link" data-tab="versus" type="button">Tú vs. Crítica</button>
-      <button class="nav-link" data-tab="personajes" type="button">Who Is This?</button>
-      <button class="nav-link" data-tab="whereami" type="button">Where am I?</button>
-      <button class="nav-link" data-tab="whatday" type="button">What Day Is Today?</button>
-      <button class="nav-link" data-tab="whattype" type="button">What Type Are You?</button>
-      <button class="nav-link" data-tab="ranking" type="button">Ranking</button>
+    <div class="menu-wrap">
       <span class="user-greeting" id="user-greeting" hidden></span>
-      <button class="nav-link nav-settings" data-tab="ajustes" type="button" aria-label="Ajustes">⚙</button>
-    </nav>
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-menu">
+        <span id="menu-current">Home</span>
+        <span class="menu-chevron" aria-hidden="true">▾</span>
+      </button>
+      <nav class="site-menu" id="site-menu" aria-label="Secciones">
+        <button class="menu-item active" data-tab="inicio" type="button">Home</button>
+        <button class="menu-item" data-tab="season" type="button">Season</button>
+        <button class="menu-item" data-tab="versus" type="button">Tú vs. Crítica</button>
+        <button class="menu-item" data-tab="personajes" type="button">Who Is This?</button>
+        <button class="menu-item" data-tab="whereami" type="button">Where am I?</button>
+        <button class="menu-item" data-tab="whatday" type="button">What Day Is Today?</button>
+        <button class="menu-item" data-tab="whattype" type="button">What Type Are You?</button>
+        <button class="menu-item" data-tab="ranking" type="button">Ranking</button>
+        <button class="menu-item" data-tab="ajustes" type="button">Ajustes</button>
+      </nav>
+    </div>
   </header>
 
   <main>
@@ -73,6 +80,11 @@
           <select name="game" id="temporada-game" required></select>
         </label>
 
+        <div class="game-card" id="season-game-card" hidden>
+          <div class="game-card-frame" id="season-game-frame"></div>
+          <p class="game-card-name" id="season-game-name"></p>
+        </div>
+
         <label id="temporada-dynamic-label" hidden>
           <span id="temporada-dynamic-text">Opción</span>
           <select name="season" id="temporada-dynamic-select" required></select>
@@ -88,13 +100,13 @@
       <p class="result-msg" id="temporada-msg"></p>
     </section>
 
-    <!-- PESTAÑA: VERSUS -->
+    <!-- PESTAÑA: VERSUS (adivina la nota de Metacritic) -->
     <section id="tab-versus" class="panel tab-panel" data-panel="versus">
-      <h2 class="panel-title">Tu nota vs. la nota de la crítica</h2>
+      <h2 class="panel-title">Tú vs. la Crítica</h2>
       <p class="panel-desc">
-        ¿Tu calificación coincide con la de la crítica? Selecciona un juego y compara tu nota con la de
-        Metacritic. Cada calificación se suma al ranking general y ayuda a mostrar cuáles son los juegos mejor
-        valorados de la comunidad.
+        ¿Tu calificación coincide con la de la crítica? Selecciona un juego, lee la breve descripción de cómo fue
+        recibido y adivina su nota en Metacritic, de 1 a 100. Después verás la nota real y qué tan cerca estuviste.
+        Tus respuestas alimentan el ranking y muestran cuáles son los juegos mejor valorados de la comunidad.
       </p>
 
       <form id="form-versus" class="game-form">
@@ -103,15 +115,23 @@
           <select name="game" id="versus-game" required></select>
         </label>
 
-        <div class="versus-cover" id="versus-cover" hidden>
-          <div class="cover-box" id="versus-cover-box"></div>
+        <div class="game-card" id="versus-game-card" hidden>
+          <div class="game-card-frame" id="versus-game-frame"></div>
+          <p class="game-card-name" id="versus-game-name"></p>
+          <p class="game-card-meta" id="versus-game-meta"></p>
+          <p class="game-clue" id="versus-clue"></p>
         </div>
 
-        <label>
-          Tu calificación: <output id="rating-output">7</output>/10
-          <input type="range" name="rating" min="1" max="10" value="7" id="rating-slider">
-        </label>
-        <button type="submit" class="btn">Comparar</button>
+        <div class="guess-block" id="versus-guess-block" hidden>
+          <label for="guess-slider">
+            Tu predicción de la nota de Metacritic: <output id="guess-output">50</output>/100
+          </label>
+          <div class="guess-row">
+            <input type="range" id="guess-slider" min="1" max="100" value="50">
+            <input type="number" id="guess-number" min="1" max="100" value="50" inputmode="numeric" aria-label="Predicción exacta">
+          </div>
+          <button type="submit" class="btn">Adivinar</button>
+        </div>
       </form>
 
       <div class="versus-meter" id="versus-meter" hidden>
@@ -126,6 +146,7 @@
           <span class="meter-value" id="meter-critic-value"></span>
         </div>
         <p class="versus-verdict" id="versus-verdict"></p>
+        <a class="versus-link" id="versus-link" href="#" target="_blank" rel="noopener noreferrer">Ver este juego en Metacritic</a>
       </div>
       <p class="result-msg" id="versus-msg"></p>
     </section>
@@ -139,6 +160,40 @@
         tiempo tendrás para responder.
       </p>
       <p class="coming-soon">🚧 Sección en desarrollo. Muy pronto podrás jugar aquí.</p>
+
+      <!--
+        ESBOZO DEL EASTER EGG (DESACTIVADO: no se ve ni es accesible mientras este bloque siga comentado).
+        Para activarlo: quitar este comentario y poner EASTER_EGG_ENABLED = true en script.js.
+
+        1) Disparador: una imagen discreta dentro de esta sección.
+        <img id="egg-trigger" src="assets/logo.png" alt="" class="egg-trigger">
+
+        2) Subpágina oculta con 3 subsecciones; cada una exige superar un captcha o pregunta.
+        <div id="egg-page" class="egg-page" hidden>
+          <section id="egg-1" class="egg-section" data-locked="true">
+            <h3>Subsección 1</h3>
+            <p id="egg-1-prompt"></p>
+            <input type="text" id="egg-1-input" autocomplete="off">
+            <button type="button" class="btn" data-egg-check="egg-1">Comprobar</button>
+            <div class="egg-content" hidden>Contenido de la subsección 1</div>
+          </section>
+          <section id="egg-2" class="egg-section" data-locked="true">
+            <h3>Subsección 2</h3>
+            <p id="egg-2-prompt"></p>
+            <input type="text" id="egg-2-input" autocomplete="off">
+            <button type="button" class="btn" data-egg-check="egg-2">Comprobar</button>
+            <div class="egg-content" hidden>Contenido de la subsección 2</div>
+          </section>
+          <section id="egg-3" class="egg-section" data-locked="true">
+            <h3>Subsección 3</h3>
+            <p id="egg-3-prompt"></p>
+            <input type="text" id="egg-3-input" autocomplete="off">
+            <button type="button" class="btn" data-egg-check="egg-3">Comprobar</button>
+            <div class="egg-content" hidden>Contenido de la subsección 3</div>
+          </section>
+          <div id="egg-vault" hidden>Easter egg completo (se muestra al superar las 3 pruebas)</div>
+        </div>
+      -->
     </section>
 
     <!-- PESTAÑA: WHERE AM I? (sin desarrollar todavía) -->
@@ -185,7 +240,7 @@
       <button class="btn btn-secondary" id="btn-cargar-ranking">Actualizar ranking</button>
       <table class="ranking-table" id="ranking-table" hidden>
         <thead>
-          <tr><th>Juego</th><th>Promedio usuarios</th><th>Metacritic</th><th>Votos</th></tr>
+          <tr><th>Juego</th><th>Metacritic</th><th>Predicción media</th><th>Votos</th></tr>
         </thead>
         <tbody id="ranking-body"></tbody>
       </table>

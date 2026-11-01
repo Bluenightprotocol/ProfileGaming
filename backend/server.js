@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
-const { initDB, addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll } = require("./db");
+const { initDB, addVoteIfNew, getVotesByType, getNickname, setNickname, addFeedback, getAll } = require("./db");
 const { encryptIP, decryptIP } = require("./crypto-utils");
 
 const app = express();
@@ -62,22 +62,22 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// Catálogo para la ruta /api/rating y /api/ranking (juegos con nota de
-// Metacritic). Debe coincidir con VERSUS_GAMES en frontend/script.js.
-// Cuando "critic" es null, el juego no tiene nota oficial de crítica.
-const VALID_GAMES = {
-  "minecraft": { name: "Minecraft", critic: 93 },
-  "fortnite": { name: "Fortnite", critic: 82 },
-  "residentevil": { name: "Resident Evil 4 (2023)", critic: 93 },
-  "gta": { name: "GTA V", critic: 97 },
-  "valorant": { name: "Valorant", critic: null },
-  "brawlstars": { name: "Brawl Stars", critic: null },
-  "overwatch": { name: "Overwatch", critic: null },
+// Juegos de "Tú vs. Crítica": solo los que tienen nota real de Metacritic.
+// "metascore" es la respuesta correcta. Debe coincidir con VERSUS_GAMES en
+// frontend/script.js.
+const GUESS_GAMES = {
+  minecraft: { name: "Minecraft", metascore: 93 },
+  residentevil: { name: "Resident Evil 4 Remake", metascore: 93 },
+  gta: { name: "Grand Theft Auto V", metascore: 97 },
+  apexlegends: { name: "Apex Legends", metascore: 88 },
+  rocketleague: { name: "Rocket League", metascore: 86 },
+  overwatch: { name: "Overwatch", metascore: 91 },
+  counterstrike: { name: "Counter-Strike: Global Offensive", metascore: 83 },
 };
 
-// Temporadas/opciones válidas para /api/season, agrupadas por juego porque
-// cada franquicia se mide distinto (versión, temporada, título o año).
-// Debe coincidir con SEASON_GAMES en frontend/script.js.
+// Opciones válidas para /api/season, agrupadas por juego porque cada franquicia
+// se mide distinto (versión, temporada, título o año). Debe coincidir con
+// SEASON_GAMES en frontend/script.js.
 const VALID_SEASONS = {
   minecraft: ["beta-1.7", "1.8", "1.12", "1.14", "1.16", "1.18", "1.19", "1.20", "1.21", "actual"],
   valorant: yearStrings(2020, 2026),
@@ -86,6 +86,15 @@ const VALID_SEASONS = {
   gta: ["gta3", "gta-vc", "gta-sa", "gta4", ...gtaFiveYearOptions()],
   brawlstars: yearStrings(2018, 2026),
   overwatch: yearStrings(2016, 2026),
+  apexlegends: yearStrings(2019, 2026),
+  rocketleague: yearStrings(2015, 2026),
+  counterstrike: ["cs16", "css", "csgo", "cs2"],
+  callofduty: [
+    "cod1", "cod2", "cod4", "codwaw", "codmw2", "codbo1", "codmw3", "codbo2", "codghosts", "codaw",
+    "codbo3", "codiw", "codww2", "codbo4", "codmw19", "codcw", "codvanguard", "codmw22", "codmw23",
+    "codbo6", "codbo7",
+  ],
+  fallguys: yearStrings(2020, 2026),
 };
 
 function yearStrings(start, end) {
@@ -130,7 +139,7 @@ app.post("/api/season", async (req, res, next) => {
   try {
     const { game, season } = req.body || {};
 
-    if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
+    if (!VALID_SEASONS[game]) return res.status(400).json({ error: "Juego inválido" });
     if (!isValidSeason(game, season)) return res.status(400).json({ error: "Temporada inválida" });
 
     const rawIP = getClientIP(req);
@@ -144,19 +153,19 @@ app.post("/api/season", async (req, res, next) => {
   }
 });
 
-app.post("/api/rating", async (req, res, next) => {
+app.post("/api/guess", async (req, res, next) => {
   try {
-    const { game, rating } = req.body || {};
-    const numericRating = Number(rating);
+    const { game, guess } = req.body || {};
+    const numericGuess = Number(guess);
 
-    if (!VALID_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
-    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 10) {
-      return res.status(400).json({ error: "Calificación inválida" });
+    if (!GUESS_GAMES[game]) return res.status(400).json({ error: "Juego inválido" });
+    if (!Number.isInteger(numericGuess) || numericGuess < 1 || numericGuess > 100) {
+      return res.status(400).json({ error: "La predicción debe ser un entero entre 1 y 100" });
     }
 
     const rawIP = getClientIP(req);
     const ipHash = hashIP(rawIP);
-    const result = await addVoteIfNew({ type: "rating", game, rating: numericRating, ipHash, ipEncrypted: encryptIP(rawIP) });
+    const result = await addVoteIfNew({ type: "guess", game, rating: numericGuess, ipHash, ipEncrypted: encryptIP(rawIP) });
 
     if (!result.ok) return res.status(409).json({ error: "Voto duplicado" });
     res.status(201).json({ ok: true });
@@ -167,14 +176,14 @@ app.post("/api/rating", async (req, res, next) => {
 
 app.get("/api/ranking", async (req, res, next) => {
   try {
-    const votes = await getRatingVotes();
+    const votes = await getVotesByType("guess");
 
-    const ranking = Object.entries(VALID_GAMES).map(([id, info]) => {
+    const ranking = Object.entries(GUESS_GAMES).map(([id, info]) => {
       const gameVotes = votes.filter((v) => v.game === id);
       const avg = gameVotes.length
-        ? Number((gameVotes.reduce((sum, v) => sum + v.rating, 0) / gameVotes.length).toFixed(2))
+        ? Number((gameVotes.reduce((sum, v) => sum + v.rating, 0) / gameVotes.length).toFixed(1))
         : null;
-      return { id, name: info.name, critic: info.critic, avgUserRating: avg, votes: gameVotes.length };
+      return { id, name: info.name, metascore: info.metascore, avgGuess: avg, votes: gameVotes.length };
     });
 
     res.json(ranking);

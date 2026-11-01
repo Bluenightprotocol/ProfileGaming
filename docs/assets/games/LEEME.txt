@@ -1,0 +1,10 @@
+Imágenes de los juegos (se muestran en Season y en Tú vs. Crítica).
+
+Guarda aquí una imagen por juego, con estos nombres exactos (jpg, webp o png):
+minecraft, valorant, fortnite, residentevil, gta, brawlstars, overwatch,
+apexlegends, rocketleague, counterstrike, callofduty, fallguys
+
+Ejemplo: minecraft.jpg
+Tamaño recomendado: 800 x 450 px (formato 16:9), menos de 200 KB.
+Usa imágenes de los kits de prensa oficiales de cada juego o capturas propias.
+Si un archivo no existe, la página muestra una tarjeta de color con el nombre del juego.

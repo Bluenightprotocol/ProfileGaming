@@ -1,12 +1,62 @@
 // script.js: lógica del frontend de ProfileGaming
 
-// ⚠️ Cambia esto por la URL real del backend cuando esté desplegado (ver README).
 const API_BASE_URL = "https://profilegaming.onrender.com";
 
 // ---------------------------------------------------------------------------
-// Catálogo para la pestaña "Temporada": cada juego define cómo se pregunta
-// "desde cuándo lo juegas", porque no todos se miden en años calendario.
+// Imágenes de los juegos. Se buscan en assets/games/<id>.jpg (o .webp / .png).
+// Si el archivo no existe, se muestra una tarjeta de color con el nombre.
 // ---------------------------------------------------------------------------
+const IMAGE_EXTENSIONS = ["jpg", "webp", "png"];
+
+const GAME_COLORS = {
+  minecraft: ["#5b8731", "#2f4a1a"],
+  valorant: ["#ff4655", "#7a1d26"],
+  fortnite: ["#6a3fd6", "#2f1a73"],
+  residentevil: ["#8a1c1c", "#2a0a0a"],
+  gta: ["#1f7a4d", "#0c2e1e"],
+  brawlstars: ["#ffb400", "#a35c00"],
+  overwatch: ["#f79020", "#8a3d00"],
+  apexlegends: ["#d9342b", "#4a0f0c"],
+  rocketleague: ["#1e88e5", "#0b2f57"],
+  counterstrike: ["#d4a017", "#4d3a05"],
+  callofduty: ["#4b5d3a", "#1a2112"],
+  fallguys: ["#ec4899", "#6d1a47"],
+};
+
+function renderGameImage(frame, gameId, name) {
+  const [c1, c2] = GAME_COLORS[gameId] || ["#3a2459", "#11081f"];
+  frame.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+  frame.textContent = "";
+  const fallback = document.createElement("span");
+  fallback.className = "game-card-fallback";
+  fallback.textContent = name;
+  frame.appendChild(fallback);
+
+  let attempt = 0;
+  const img = new Image();
+  img.alt = name;
+  img.decoding = "async";
+  img.onload = () => {
+    frame.textContent = "";
+    frame.appendChild(img);
+  };
+  img.onerror = () => {
+    attempt += 1;
+    if (attempt < IMAGE_EXTENSIONS.length) img.src = `assets/games/${gameId}.${IMAGE_EXTENSIONS[attempt]}`;
+  };
+  img.src = `assets/games/${gameId}.${IMAGE_EXTENSIONS[0]}`;
+}
+
+// ---------------------------------------------------------------------------
+// Pestaña Season: cada juego define cómo se pregunta "desde cuándo lo juegas".
+// Los valores deben coincidir con VALID_SEASONS en backend/server.js.
+// ---------------------------------------------------------------------------
+function yearRange(start, end) {
+  const years = [];
+  for (let y = end; y >= start; y--) years.push({ value: String(y), label: String(y) });
+  return years;
+}
+
 const SEASON_GAMES = {
   minecraft: {
     name: "Minecraft",
@@ -25,12 +75,7 @@ const SEASON_GAMES = {
       { value: "actual", label: "Versión actual (2025-2026)" },
     ],
   },
-  valorant: {
-    name: "Valorant",
-    type: "year",
-    label: "Año desde el que juegas",
-    options: yearRange(2020, 2026),
-  },
+  valorant: { name: "Valorant", type: "year", label: "Año desde el que juegas", options: yearRange(2020, 2026) },
   fortnite: {
     name: "Fortnite",
     type: "season",
@@ -74,41 +119,107 @@ const SEASON_GAMES = {
       { value: "gta5", label: "GTA V (2013)" },
     ],
   },
-  brawlstars: {
-    name: "Brawl Stars",
-    type: "year",
-    label: "Año desde el que juegas",
-    options: yearRange(2018, 2026),
+  brawlstars: { name: "Brawl Stars", type: "year", label: "Año desde el que juegas", options: yearRange(2018, 2026) },
+  overwatch: { name: "Overwatch", type: "year", label: "Año desde el que juegas", options: yearRange(2016, 2026) },
+  apexlegends: { name: "Apex Legends", type: "year", label: "Año desde el que juegas", options: yearRange(2019, 2026) },
+  rocketleague: { name: "Rocket League", type: "year", label: "Año desde el que juegas", options: yearRange(2015, 2026) },
+  counterstrike: {
+    name: "Counter-Strike",
+    type: "title",
+    label: "Versión con la que empezaste",
+    options: [
+      { value: "cs16", label: "Counter-Strike 1.6 (2000)" },
+      { value: "css", label: "Counter-Strike: Source (2004)" },
+      { value: "csgo", label: "Counter-Strike: Global Offensive (2012)" },
+      { value: "cs2", label: "Counter-Strike 2 (2023)" },
+    ],
+  },
+  callofduty: {
+    name: "Call of Duty",
+    type: "title",
+    label: "Título con el que empezaste",
+    options: [
+      { value: "cod1", label: "Call of Duty (2003)" },
+      { value: "cod2", label: "Call of Duty 2 (2005)" },
+      { value: "cod4", label: "Call of Duty 4: Modern Warfare (2007)" },
+      { value: "codwaw", label: "Call of Duty: World at War (2008)" },
+      { value: "codmw2", label: "Modern Warfare 2 (2009)" },
+      { value: "codbo1", label: "Black Ops (2010)" },
+      { value: "codmw3", label: "Modern Warfare 3 (2011)" },
+      { value: "codbo2", label: "Black Ops II (2012)" },
+      { value: "codghosts", label: "Ghosts (2013)" },
+      { value: "codaw", label: "Advanced Warfare (2014)" },
+      { value: "codbo3", label: "Black Ops III (2015)" },
+      { value: "codiw", label: "Infinite Warfare (2016)" },
+      { value: "codww2", label: "WWII (2017)" },
+      { value: "codbo4", label: "Black Ops 4 (2018)" },
+      { value: "codmw19", label: "Modern Warfare (2019)" },
+      { value: "codcw", label: "Black Ops Cold War (2020)" },
+      { value: "codvanguard", label: "Vanguard (2021)" },
+      { value: "codmw22", label: "Modern Warfare II (2022)" },
+      { value: "codmw23", label: "Modern Warfare III (2023)" },
+      { value: "codbo6", label: "Black Ops 6 (2024)" },
+      { value: "codbo7", label: "Black Ops 7 (2025)" },
+    ],
+  },
+  fallguys: { name: "Fall Guys", type: "year", label: "Año desde el que juegas", options: yearRange(2020, 2026) },
+};
+
+// ---------------------------------------------------------------------------
+// Pestaña Tú vs. Crítica: solo juegos con nota real de Metacritic.
+// "metascore" es la respuesta correcta; "url" lleva a la página del juego.
+// Los valores deben coincidir con GUESS_GAMES en backend/server.js.
+// ---------------------------------------------------------------------------
+const VERSUS_GAMES = {
+  minecraft: {
+    name: "Minecraft",
+    meta: "Versión de PC",
+    metascore: 93,
+    url: "https://www.metacritic.com/game/minecraft/",
+    clue: "Los críticos destacaron su libertad casi ilimitada para construir y explorar, y lo mucho que despierta la creatividad. Los reparos fueron menores: una presentación gráfica sencilla y poca guía para quien empieza.",
+  },
+  residentevil: {
+    name: "Resident Evil 4 Remake",
+    meta: "Versión de PS5 · 2023",
+    metascore: 93,
+    url: "https://www.metacritic.com/game/resident-evil-4/",
+    clue: "Un remake que moderniza la jugabilidad del clásico, con combate más fluido y una ambientación muy cuidada. Algunos críticos opinaron que no supera al original de 2005, pero casi todos lo recomendaron.",
+  },
+  gta: {
+    name: "Grand Theft Auto V",
+    meta: "Versión de PS4",
+    metascore: 97,
+    url: "https://www.metacritic.com/game/grand-theft-auto-v/",
+    clue: "Un mundo abierto enorme con tres protagonistas jugables, misiones muy variadas y una producción técnica sobresaliente. Las observaciones negativas se centraron en un tono satírico que no gusta a todos.",
+  },
+  apexlegends: {
+    name: "Apex Legends",
+    meta: "Versión de PC",
+    metascore: 88,
+    url: "https://www.metacritic.com/game/apex-legends/",
+    clue: "Un battle royale gratuito con personajes de habilidades únicas, un sistema de avisos muy práctico y un combate ágil. Los críticos lo vieron como una evolución del género; los reparos apuntaron a su modelo de monetización.",
+  },
+  rocketleague: {
+    name: "Rocket League",
+    meta: "Versión de PC",
+    metascore: 86,
+    url: "https://www.metacritic.com/game/rocket-league/",
+    clue: "Una mezcla de fútbol y autos fácil de entender pero difícil de dominar, con física muy pulida y partidas rápidas. Lo elogiaron como multijugador adictivo, aunque con poco contenido para un solo jugador.",
   },
   overwatch: {
     name: "Overwatch",
-    type: "year",
-    label: "Año desde el que juegas",
-    options: yearRange(2016, 2026),
+    meta: "Versión de PC · 2016",
+    metascore: 91,
+    url: "https://www.metacritic.com/game/overwatch/",
+    clue: "Un shooter por equipos con héroes muy distintos entre sí, mapas bien diseñados y un acabado impecable. Los análisis resaltaron su accesibilidad y señalaron la falta de una campaña para un jugador.",
   },
-};
-
-function yearRange(start, end) {
-  const years = [];
-  for (let y = end; y >= start; y--) years.push({ value: String(y), label: String(y) });
-  return years;
-}
-
-// ---------------------------------------------------------------------------
-// Catálogo para "Tú vs. Crítica" y el Ranking: un título representativo por
-// franquicia, con su nota de Metacritic. Estas notas son públicas pero
-// pueden cambiar con el tiempo; conviene revisarlas cada tanto en metacritic.com.
-// Cuando no hay nota oficial de crítica (juegos sin reseñas agregadas), el
-// valor "critic" queda en null y la comparación se omite.
-// ---------------------------------------------------------------------------
-const VERSUS_GAMES = {
-  minecraft: { name: "Minecraft", critic: 93, color: "#5b8731", short: "MC" },
-  fortnite: { name: "Fortnite", critic: 82, color: "#6a3fd6", short: "FN" },
-  residentevil: { name: "Resident Evil 4 (2023)", critic: 93, color: "#7a1616", short: "RE" },
-  gta: { name: "GTA V", critic: 97, color: "#1f7a4d", short: "GTA" },
-  valorant: { name: "Valorant", critic: null, color: "#ff4655", short: "VAL" },
-  brawlstars: { name: "Brawl Stars", critic: null, color: "#ffb400", short: "BS" },
-  overwatch: { name: "Overwatch", critic: null, color: "#f79020", short: "OW" },
+  counterstrike: {
+    name: "Counter-Strike: Global Offensive",
+    meta: "Versión de PC",
+    metascore: 83,
+    url: "https://www.metacritic.com/game/counter-strike-global-offensive/",
+    clue: "Una actualización del shooter táctico que conserva su base competitiva, de gran profundidad y exigencia. Valoraron su equilibrio y su comunidad, aunque notaron pocos cambios frente a versiones anteriores.",
+  },
 };
 
 function fillSelect(select, options, placeholder) {
@@ -118,16 +229,13 @@ function fillSelect(select, options, placeholder) {
 }
 
 function fillGameSelects() {
-  const temporadaSelect = document.getElementById("temporada-game");
   fillSelect(
-    temporadaSelect,
+    document.getElementById("temporada-game"),
     Object.entries(SEASON_GAMES).map(([id, g]) => ({ value: id, label: g.name })),
     "Elige un juego"
   );
-
-  const versusSelect = document.getElementById("versus-game");
   fillSelect(
-    versusSelect,
+    document.getElementById("versus-game"),
     Object.entries(VERSUS_GAMES).map(([id, g]) => ({ value: id, label: g.name })),
     "Elige un juego"
   );
@@ -142,9 +250,6 @@ async function postJSON(path, body) {
       body: JSON.stringify(body),
     });
   } catch {
-    // "Failed to fetch" ocurre cuando el navegador ni siquiera pudo
-    // contactar al servidor (dirección incorrecta, servidor caído, CORS
-    // bloqueado). Se traduce a un mensaje entendible para la persona.
     throw new Error("No se pudo conectar con el servidor. Intenta de nuevo en unos minutos.");
   }
   const data = await res.json().catch(() => ({}));
@@ -152,7 +257,7 @@ async function postJSON(path, body) {
   return data;
 }
 
-// --- Pestaña Season (con lógica dinámica por tipo de juego) ---
+// --- Pestaña Season ---
 const temporadaGameSelect = document.getElementById("temporada-game");
 const dynamicLabel = document.getElementById("temporada-dynamic-label");
 const dynamicText = document.getElementById("temporada-dynamic-text");
@@ -160,6 +265,7 @@ const dynamicSelect = document.getElementById("temporada-dynamic-select");
 const gtaYearLabel = document.getElementById("temporada-gta-year-label");
 const gtaYearInput = document.getElementById("temporada-gta-year");
 const gtaYearOutput = document.getElementById("temporada-gta-year-output");
+const seasonCard = document.getElementById("season-game-card");
 
 temporadaGameSelect.addEventListener("change", () => {
   const gameId = temporadaGameSelect.value;
@@ -167,22 +273,22 @@ temporadaGameSelect.addEventListener("change", () => {
 
   if (!gameId || !SEASON_GAMES[gameId]) {
     dynamicLabel.hidden = true;
+    seasonCard.hidden = true;
     return;
   }
 
   const game = SEASON_GAMES[gameId];
+  document.getElementById("season-game-name").textContent = game.name;
+  renderGameImage(document.getElementById("season-game-frame"), gameId, game.name);
+  seasonCard.hidden = false;
+
   dynamicText.textContent = game.label;
   fillSelect(dynamicSelect, game.options, "Elige una opción");
   dynamicLabel.hidden = false;
 });
 
 dynamicSelect.addEventListener("change", () => {
-  const gameId = temporadaGameSelect.value;
-  if (gameId === "gta" && dynamicSelect.value === "gta5") {
-    gtaYearLabel.hidden = false;
-  } else {
-    gtaYearLabel.hidden = true;
-  }
+  gtaYearLabel.hidden = !(temporadaGameSelect.value === "gta" && dynamicSelect.value === "gta5");
 });
 
 gtaYearInput.addEventListener("input", () => {
@@ -200,9 +306,7 @@ document.getElementById("form-temporada").addEventListener("submit", async (e) =
   }
 
   let season = dynamicSelect.value;
-  if (gameId === "gta" && season === "gta5") {
-    season = `gta5-${gtaYearInput.value}`;
-  }
+  if (gameId === "gta" && season === "gta5") season = `gta5-${gtaYearInput.value}`;
 
   msg.textContent = "Enviando...";
   try {
@@ -215,72 +319,87 @@ document.getElementById("form-temporada").addEventListener("submit", async (e) =
   }
 });
 
-// --- Pestaña Versus ---
-const slider = document.getElementById("rating-slider");
-const ratingOutput = document.getElementById("rating-output");
-slider.addEventListener("input", () => (ratingOutput.textContent = slider.value));
-
+// --- Pestaña Tú vs. Crítica (adivinar la nota de Metacritic) ---
 const versusGameSelect = document.getElementById("versus-game");
-const versusCover = document.getElementById("versus-cover");
-const versusCoverBox = document.getElementById("versus-cover-box");
+const versusCard = document.getElementById("versus-game-card");
+const guessBlock = document.getElementById("versus-guess-block");
+const guessSlider = document.getElementById("guess-slider");
+const guessNumber = document.getElementById("guess-number");
+const guessOutput = document.getElementById("guess-output");
+const versusMeter = document.getElementById("versus-meter");
+
+function setGuess(value) {
+  const n = Math.min(100, Math.max(1, Math.round(Number(value) || 1)));
+  guessSlider.value = n;
+  guessNumber.value = n;
+  guessOutput.textContent = n;
+  return n;
+}
+
+guessSlider.addEventListener("input", () => setGuess(guessSlider.value));
+guessNumber.addEventListener("input", () => {
+  if (guessNumber.value !== "") setGuess(guessNumber.value);
+});
 
 versusGameSelect.addEventListener("change", () => {
   const game = VERSUS_GAMES[versusGameSelect.value];
+  versusMeter.hidden = true;
+  document.getElementById("versus-msg").textContent = "";
   if (!game) {
-    versusCover.hidden = true;
+    versusCard.hidden = true;
+    guessBlock.hidden = true;
     return;
   }
-  versusCoverBox.style.background = game.color;
-  versusCoverBox.textContent = game.short;
-  versusCover.hidden = false;
+  document.getElementById("versus-game-name").textContent = game.name;
+  document.getElementById("versus-game-meta").textContent = game.meta;
+  document.getElementById("versus-clue").textContent = game.clue;
+  renderGameImage(document.getElementById("versus-game-frame"), versusGameSelect.value, game.name);
+  versusCard.hidden = false;
+  guessBlock.hidden = false;
+  setGuess(50);
 });
+
+function verdictFor(diff) {
+  if (diff === 0) return "¡Exacto! Acertaste la nota.";
+  if (diff <= 3) return `Casi perfecto: te desviaste solo ${diff} ${diff === 1 ? "punto" : "puntos"}.`;
+  if (diff <= 8) return `Muy cerca: te desviaste ${diff} puntos.`;
+  if (diff <= 15) return `Cerca: te desviaste ${diff} puntos.`;
+  return `Lejos esta vez: te desviaste ${diff} puntos.`;
+}
+
+function revealResult(game, guess) {
+  document.getElementById("meter-user").style.width = `${guess}%`;
+  document.getElementById("meter-user-value").textContent = guess;
+  document.getElementById("meter-critic").style.width = `${game.metascore}%`;
+  document.getElementById("meter-critic-value").textContent = game.metascore;
+  document.getElementById("versus-verdict").textContent = verdictFor(Math.abs(guess - game.metascore));
+  document.getElementById("versus-link").href = game.url;
+  versusMeter.hidden = false;
+}
 
 document.getElementById("form-versus").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const form = new FormData(e.target);
   const msg = document.getElementById("versus-msg");
-  const gameId = form.get("game");
-  const rating = Number(form.get("rating"));
-
-  if (!gameId) {
+  const gameId = versusGameSelect.value;
+  const game = VERSUS_GAMES[gameId];
+  if (!game) {
     msg.textContent = "Elige un juego primero.";
     return;
   }
 
-  msg.textContent = "Comparando...";
+  const guess = setGuess(guessNumber.value || guessSlider.value);
+  msg.textContent = "Comprobando...";
   try {
-    await postJSON("/api/rating", { game: gameId, rating });
-    const game = VERSUS_GAMES[gameId];
-    const meter = document.getElementById("versus-meter");
-    const verdict = document.getElementById("versus-verdict");
-    const criticRow = document.getElementById("meter-critic").closest(".meter-row");
-
-    meter.hidden = false;
-    document.getElementById("meter-user").style.width = `${rating * 10}%`;
-    document.getElementById("meter-user-value").textContent = rating.toFixed(1);
-
-    if (game.critic === null) {
-      criticRow.style.display = "none";
-      verdict.textContent = "Este juego no tiene una nota de crítica oficial en Metacritic todavía.";
-    } else {
-      criticRow.style.display = "flex";
-      const criticOutOf10 = game.critic / 10;
-      document.getElementById("meter-critic").style.width = `${game.critic}%`;
-      document.getElementById("meter-critic-value").textContent = criticOutOf10.toFixed(1);
-
-      const diff = rating - criticOutOf10;
-      verdict.textContent =
-        Math.abs(diff) < 0.5
-          ? "Tu opinión coincide bastante con la crítica."
-          : diff > 0
-          ? `Eres ${diff.toFixed(1)} puntos más generoso que la crítica.`
-          : `Eres ${Math.abs(diff).toFixed(1)} puntos más exigente que la crítica.`;
-    }
+    await postJSON("/api/guess", { game: gameId, guess });
+    revealResult(game, guess);
     msg.textContent = "";
   } catch (err) {
-    msg.textContent = err.message.includes("duplicad")
-      ? "Ya calificaste este juego antes."
-      : `Error: ${err.message}`;
+    if (err.message.includes("duplicad")) {
+      revealResult(game, guess);
+      msg.textContent = "Ya habías participado con este juego, así que esta vez no se suma al ranking.";
+    } else {
+      msg.textContent = `Error: ${err.message}`;
+    }
   }
 });
 
@@ -296,12 +415,13 @@ document.getElementById("btn-cargar-ranking").addEventListener("click", async ()
     });
     if (!res.ok) throw new Error("El servidor respondió con un error");
     const data = await res.json();
+    data.sort((a, b) => b.metascore - a.metascore);
     body.innerHTML = data
       .map(
         (row) => `<tr>
           <td>${row.name}</td>
-          <td>${row.avgUserRating ?? ":"}</td>
-          <td>${row.critic !== null ? (row.critic / 10).toFixed(1) : ":"}</td>
+          <td>${row.metascore}</td>
+          <td>${row.avgGuess ?? "-"}</td>
           <td>${row.votes}</td>
         </tr>`
       )
@@ -313,19 +433,42 @@ document.getElementById("btn-cargar-ranking").addEventListener("click", async ()
   }
 });
 
-// --- Navegación por pestañas (misma página, sin recargar) ---
+// --- Menú y navegación por pestañas (misma página, sin recargar) ---
+const menuToggle = document.getElementById("menu-toggle");
+const siteMenu = document.getElementById("site-menu");
+const menuCurrent = document.getElementById("menu-current");
+
+function setMenuOpen(open) {
+  siteMenu.classList.toggle("open", open);
+  menuToggle.setAttribute("aria-expanded", String(open));
+}
+
 function switchTab(tab) {
-  document.querySelectorAll(".nav-link").forEach((l) => l.classList.toggle("active", l.dataset.tab === tab));
+  document.querySelectorAll(".menu-item").forEach((item) => {
+    const active = item.dataset.tab === tab;
+    item.classList.toggle("active", active);
+    if (active) menuCurrent.textContent = item.textContent;
+  });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.panel === tab);
   });
-  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  setMenuOpen(false);
+  window.scrollTo(0, 0);
 }
 
-document.querySelectorAll(".nav-link").forEach((link) => {
-  link.addEventListener("click", () => switchTab(link.dataset.tab));
+menuToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setMenuOpen(!siteMenu.classList.contains("open"));
 });
-
+document.addEventListener("click", (e) => {
+  if (!siteMenu.contains(e.target)) setMenuOpen(false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setMenuOpen(false);
+});
+document.querySelectorAll(".menu-item").forEach((item) => {
+  item.addEventListener("click", () => switchTab(item.dataset.tab));
+});
 document.getElementById("logo-home-btn").addEventListener("click", () => switchTab("inicio"));
 
 // --- Tema oscuro/claro (oscuro por defecto, se guarda en este navegador) ---
@@ -340,19 +483,13 @@ function applyTheme(theme) {
 
 document.querySelectorAll(".theme-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const theme = btn.dataset.theme;
-    applyTheme(theme);
-    localStorage.setItem(THEME_KEY, theme);
+    applyTheme(btn.dataset.theme);
+    localStorage.setItem(THEME_KEY, btn.dataset.theme);
   });
 });
+applyTheme(localStorage.getItem(THEME_KEY) || "dark");
 
-const savedTheme = localStorage.getItem(THEME_KEY) || "dark";
-applyTheme(savedTheme);
-
-// ---------------------------------------------------------------------------
-// Gamertag / nickname, ligado a la IP desde el backend. Se pide una sola vez
-// (primera visita) y se puede cambiar luego desde Ajustes.
-// ---------------------------------------------------------------------------
+// --- Gamertag, ligado a la IP desde el backend ---
 const nicknameGate = document.getElementById("nickname-gate");
 const nicknameInput = document.getElementById("nickname-input");
 const nicknameSaveBtn = document.getElementById("nickname-save-btn");
@@ -381,9 +518,6 @@ async function checkNickname() {
       nicknameInput.focus();
     }
   } catch {
-    // Si el backend no responde, igual mostramos el aviso de gamertag (no lo
-    // ocultamos en silencio) y avisamos con claridad que hay un problema de
-    // conexión, en vez de dejar que la persona piense que todo está bien.
     nicknameGate.hidden = false;
     nicknameMsg.textContent = "No se pudo conectar con el servidor. Intenta recargar la página en unos minutos.";
   }
@@ -407,25 +541,19 @@ async function saveNickname(nickname, msgEl) {
 }
 
 nicknameSaveBtn.addEventListener("click", async () => {
-  const ok = await saveNickname(nicknameInput.value, nicknameMsg);
-  if (ok) nicknameGate.hidden = true;
+  if (await saveNickname(nicknameInput.value, nicknameMsg)) nicknameGate.hidden = true;
 });
-
 nicknameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") nicknameSaveBtn.click();
 });
-
 settingsNicknameSave.addEventListener("click", async () => {
-  const ok = await saveNickname(settingsNicknameInput.value, settingsNicknameMsg);
-  if (ok) settingsNicknameMsg.textContent = "Gamertag actualizado.";
+  if (await saveNickname(settingsNicknameInput.value, settingsNicknameMsg)) {
+    settingsNicknameMsg.textContent = "Gamertag actualizado.";
+  }
 });
-
 checkNickname();
 
-// ---------------------------------------------------------------------------
-// Encuesta de satisfacción en el pie de página. Se pide una sola vez; si ya
-// se envió, se recuerda en este navegador para no volver a preguntar.
-// ---------------------------------------------------------------------------
+// --- Encuesta de satisfacción (una sola vez por navegador) ---
 const FEEDBACK_KEY = "profilegaming-feedback-sent";
 const feedbackWidget = document.querySelector(".feedback-widget");
 const feedbackStars = document.querySelectorAll(".star-btn");
@@ -460,8 +588,56 @@ if (localStorage.getItem(FEEDBACK_KEY) === "1") {
   feedbackWidget.innerHTML = '<p class="feedback-title">¡Gracias por tu opinión!</p>';
 }
 
+// ---------------------------------------------------------------------------
+// ESBOZO DEL EASTER EGG (desactivado: no hace nada mientras la bandera sea false).
+// Para activarlo: descomentar el bloque de index.html (dentro de Who Is This?),
+// descomentar los estilos .egg-* de style.css y poner EASTER_EGG_ENABLED = true.
+// Las respuestas de ejemplo son temporales: cuando se active de verdad,
+// la validación debe pasar al backend para que no se pueda leer desde el código.
+// ---------------------------------------------------------------------------
+const EASTER_EGG_ENABLED = false;
+
+const EGG_GATES = [
+  { id: "egg-1", prompt: "Captcha 1 (por definir)", answer: null },
+  { id: "egg-2", prompt: "Pregunta 2 (por definir)", answer: null },
+  { id: "egg-3", prompt: "Pregunta 3 (por definir)", answer: null },
+];
+
+function initEasterEgg() {
+  if (!EASTER_EGG_ENABLED) return;
+
+  const trigger = document.getElementById("egg-trigger");
+  const page = document.getElementById("egg-page");
+  const vault = document.getElementById("egg-vault");
+  if (!trigger || !page || !vault) return;
+
+  const unlocked = new Set();
+  EGG_GATES.forEach((gate) => {
+    const promptEl = document.getElementById(`${gate.id}-prompt`);
+    if (promptEl) promptEl.textContent = gate.prompt;
+  });
+
+  trigger.addEventListener("click", () => {
+    page.hidden = false;
+  });
+
+  document.querySelectorAll("[data-egg-check]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const gate = EGG_GATES.find((g) => g.id === btn.dataset.eggCheck);
+      const section = document.getElementById(gate.id);
+      const input = document.getElementById(`${gate.id}-input`);
+      if (gate.answer !== null && input.value.trim().toLowerCase() === String(gate.answer).toLowerCase()) {
+        unlocked.add(gate.id);
+        section.dataset.locked = "false";
+        section.querySelector(".egg-content").hidden = false;
+      }
+      if (unlocked.size === EGG_GATES.length) vault.hidden = false;
+    });
+  });
+}
+initEasterEgg();
+
 // --- Inicialización general ---
 fillGameSelects();
-
 const yearEl = document.getElementById("year");
 if (yearEl) yearEl.textContent = new Date().getFullYear();

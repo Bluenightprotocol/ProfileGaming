@@ -84,8 +84,8 @@ async function addVoteIfNew(vote) {
   return { ok: true };
 }
 
-async function getRatingVotes() {
-  const result = await pool.query(`SELECT * FROM votes WHERE type = 'rating'`);
+async function getVotesByType(type) {
+  const result = await pool.query(`SELECT * FROM votes WHERE type = $1`, [type]);
   return result.rows.map(rowToVote);
 }
 
@@ -157,4 +157,4 @@ async function getAll() {
   };
 }
 
-module.exports = { initDB, addVoteIfNew, getRatingVotes, getNickname, setNickname, addFeedback, getAll };
+module.exports = { initDB, addVoteIfNew, getVotesByType, getNickname, setNickname, addFeedback, getAll };
